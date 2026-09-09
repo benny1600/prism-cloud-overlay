@@ -6,8 +6,14 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/ws/*", "/api/*"]
+    "run_worker_first": ["/ws/*", "/api/*", "/media/*"]
   },
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "prism-cloud-overlay-media"
+    }
+  ],
   "durable_objects": {
     "bindings": [
       {
@@ -22,7 +28,5 @@
       "new_sqlite_classes": ["OverlayRoom"]
     }
   ],
-  "observability": {
-    "enabled": true
-  }
+  "observability": { "enabled": true }
 }

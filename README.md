@@ -1,90 +1,80 @@
-# Prism Cloud Overlay — isolated mobile prototype
+# Prism Cloud Overlay v0.2
 
-This project does **not** touch your OBS setup.
+An isolated mobile/Prism overlay system. It does not modify or depend on OBS.
 
-## What it contains
+## v0.2 adds
 
-- `/overlay.html` — transparent page for Prism/browser-source use
-- `/control.html` — phone-friendly remote control
-- Cloudflare Worker — routing and security
-- Durable Object — room state + realtime WebSocket broadcast
-- `/public/assets/images` and `/public/assets/video` — your media
+- Private Cloudflare R2 media library
+- Upload images/video from the mobile control panel
+- Preview media in the panel
+- Rename display names
+- Delete media directly from the panel with confirmation
+- Show images with duration + position presets
+- Play MP4/WebM with automatic end clearing
+- Range-aware media delivery for video playback
+- Controller login without putting the secret in the everyday URL
+- Persistent overlay state via Durable Objects/WebSockets
 
-## Deploy
+## IMPORTANT: one Cloudflare setup step before deployment
 
-Prerequisites: a Cloudflare account and Node.js.
+Create an R2 bucket named exactly:
 
-1. Open a terminal in this folder.
-2. Run:
-   `npm install`
-3. Log in:
-   `npx wrangler login`
-4. Create a private controller key:
-   `npx wrangler secret put CONTROL_KEY`
-   Enter a long random password when prompted.
-5. Deploy:
-   `npm run deploy`
+`prism-cloud-overlay-media`
 
-Wrangler will return a `workers.dev` URL.
+Cloudflare Dashboard path: **R2 Object Storage → Create bucket**.
 
-## Test URLs
+Leave the bucket private. You do **not** need to enable an r2.dev public URL.
 
-Replace `YOUR-WORKER` and `YOUR_KEY`.
+The included `wrangler.jsonc` binds that bucket as `MEDIA`.
 
-Overlay:
-`https://YOUR-WORKER.workers.dev/overlay.html?room=mobiletest`
+Your existing Worker secret `CONTROL_KEY` stays the same.
+
+## Deploy using your existing GitHub repo
+
+Replace the repository contents with the contents of this v0.2 folder (do not upload the outer folder itself). Commit to the same branch Cloudflare is already watching.
+
+Cloudflare should automatically redeploy with:
+
+`npx wrangler deploy`
+
+## URLs after deployment
+
+Overlay for Prism:
+
+`https://prism-cloud-overlay.benny1600.workers.dev/overlay.html?room=mobiletest`
 
 Controller:
-`https://YOUR-WORKER.workers.dev/control.html?room=mobiletest&key=YOUR_KEY`
 
-Keep the controller URL private because it contains your control key.
+`https://prism-cloud-overlay.benny1600.workers.dev/control.html?room=mobiletest`
 
-## Prism test
+The controller asks for your CONTROL_KEY and keeps it in `sessionStorage`, so closing the tab locks the controller again.
 
-Add the overlay URL as a web/browser overlay if your Prism configuration supports a browser/web layer.
-Use the transparent page at `overlay.html`.
+## First v0.2 test
 
-Start with the sample graphic button. Do not add your full media library until the basic realtime test is reliable.
+1. Create the R2 bucket.
+2. Push v0.2 to GitHub and let Cloudflare deploy.
+3. Open the controller and enter your existing CONTROL_KEY.
+4. Upload one small PNG/WebP.
+5. Tap SHOW and verify it appears in the already-working Prism overlay.
+6. Tap DELETE and confirm it disappears from the library.
+7. Upload one short MP4/WebM and test PLAY.
 
-## Add media
+## Mobile media guidance
 
-Images:
-`public/assets/images/`
+- Images: WebP or optimized PNG.
+- Video: H.264 MP4 is the safest compatibility choice for mobile; WebM can also work depending on the embedded browser.
+- Keep clips short and reasonably compressed.
+- v0.2 intentionally caps panel uploads at 75 MB per file.
+- Only one overlay video is designed to play at a time.
 
-Video:
-`public/assets/video/`
+## Security model
 
-For mobile, prefer:
-- WebP/PNG/SVG for graphics
-- H.264 MP4 for maximum playback compatibility
-- short, reasonably compressed clips
-- one video playing at a time
+- R2 bucket stays private.
+- `/api/media/*` upload/list/delete/rename requires `X-Control-Key`.
+- Control WebSocket requires the same key.
+- `/media/*` is read-only through the Worker so Prism can render media without holding credentials.
+- The overlay remains receive-only except for the harmless `videoEnded` event used to clear finished video state.
 
-## State/reconnect behavior
+## Future additions
 
-The Durable Object stores the latest overlay state. If the overlay disconnects and reconnects, it receives the current state again.
-
-## Future integration
-
-Later, Streamer.bot can send POST requests to:
-
-`POST /api/ROOM/command`
-
-with:
-- header `X-Control-Key: YOUR_KEY`
-- JSON body such as:
-  `{"action":"showImage","src":"/assets/images/example.webp","duration":5000}`
-
-This endpoint exists now, but you do not need it for the Prism/mobile test.
-
-## First test sequence
-
-1. Deploy.
-2. Open overlay URL in a normal browser.
-3. Open control URL on another device/browser.
-4. Tap SHOW GRAPHIC.
-5. Confirm the overlay changes instantly.
-6. Test disconnect/reconnect.
-7. Only then test the overlay inside Prism.
-
-That keeps this experiment completely isolated from OBS.
+Possible later upgrades include folders/categories, drag-and-drop button ordering, saved named presets, soft-delete/trash, thumbnails generated in the cloud, multiple overlay layers, and Streamer.bot API integration.
