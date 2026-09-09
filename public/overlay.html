@@ -9,7 +9,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 *{box-sizing:border-box}
 #stage{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 #graphics{position:absolute;inset:0}
-.graphic{position:absolute;display:block;object-fit:contain;opacity:1;will-change:transform,opacity}
+.graphic{position:absolute;display:block;object-fit:contain}
 #video{position:absolute;display:none;object-fit:contain}
 #text{
   position:absolute;left:3%;right:3%;bottom:5%;display:none;overflow:hidden;
@@ -59,63 +59,6 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     }
   }
 
-  function baseTransformFor(pos){
-    const safe=allowedPositions.has(pos)?pos:'center';
-    if(safe==='center') return 'translate(-50%,-50%)';
-    if(safe==='top' || safe==='bottom') return 'translateX(-50%)';
-    if(safe==='left' || safe==='right') return 'translateY(-50%)';
-    return 'none';
-  }
-
-  function transformFor(pos,type,isOut){
-    const base=baseTransformFor(pos);
-    let extra='';
-    switch(type){
-      case 'slide-up': extra=`translateY(${isOut?'-44px':'44px'})`; break;
-      case 'slide-down': extra=`translateY(${isOut?'44px':'-44px'})`; break;
-      case 'slide-left': extra=`translateX(${isOut?'-44px':'44px'})`; break;
-      case 'slide-right': extra=`translateX(${isOut?'44px':'-44px'})`; break;
-      case 'zoom': extra='scale(.78)'; break;
-      case 'pop': extra=`scale(${isOut?'.55':'.55'})`; break;
-    }
-    if(!extra)return base;
-    return base==='none'?extra:`${base} ${extra}`;
-  }
-
-  function animateIn(img){
-    const type=img.dataset.transitionIn||'fade';
-    const ms=Math.max(100,Math.min(2000,Number(img.dataset.transitionMs||500)));
-    const pos=img.dataset.position||'center';
-    const finalTransform=baseTransformFor(pos);
-
-    img.style.transition='none';
-    img.style.opacity=type==='none'?'1':'0';
-    img.style.transform=type==='none'?finalTransform:transformFor(pos,type,false);
-    void img.offsetWidth;
-
-    if(type==='none')return;
-    img.style.transition=`opacity ${ms}ms ease, transform ${ms}ms ease`;
-    requestAnimationFrame(()=>{
-      img.style.opacity='1';
-      img.style.transform=finalTransform;
-    });
-  }
-
-  function animateOut(img,onDone){
-    if(img.dataset.removing==='1')return;
-    img.dataset.removing='1';
-    const type=img.dataset.transitionOut||'fade';
-    const ms=Math.max(100,Math.min(2000,Number(img.dataset.transitionMs||500)));
-    const pos=img.dataset.position||'center';
-
-    if(type==='none'){onDone();return}
-
-    img.style.transition=`opacity ${ms}ms ease, transform ${ms}ms ease`;
-    img.style.opacity='0';
-    img.style.transform=transformFor(pos,type,true);
-    setTimeout(onDone,ms+40);
-  }
-
   function renderGraphics(state){
     const items=Array.isArray(state.graphics)
       ? state.graphics.filter(g=>g?.src)
@@ -123,53 +66,38 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 
     const wanted=new Map(items.map(g=>[String(g.id||g.src),g]));
 
-    // Anything no longer in server state gets its own exit transition.
     for(const child of [...graphics.children]){
       if(!wanted.has(child.dataset.id)){
         clearTimeout(timers.get(child.dataset.id));
         timers.delete(child.dataset.id);
-        animateOut(child,()=>child.remove());
+        child.remove();
       }
     }
 
     for(const g of items){
       const id=String(g.id||g.src);
       let img=[...graphics.children].find(x=>x.dataset.id===id);
-      const isNew=!img;
 
       if(!img){
         img=document.createElement('img');
         img.className='graphic';
         img.dataset.id=id;
         img.alt='';
-        img.dataset.removing='0';
         graphics.appendChild(img);
       }
-
-      img.dataset.position=g.position||'center';
-      img.dataset.transitionIn=g.transitionIn||'fade';
-      img.dataset.transitionOut=g.transitionOut||'fade';
-      img.dataset.transitionMs=String(Math.max(100,Math.min(2000,Number(g.transitionMs||500))));
-      img.dataset.src=g.src;
 
       if(img.getAttribute('src')!==g.src)img.src=g.src;
       img.style.objectFit=g.fit||'contain';
       place(img,g.position,g.size);
 
-      // place() sets the correct base transform for the selected location.
-      img.dataset.removing='0';
-      if(isNew) animateIn(img);
-
       clearTimeout(timers.get(id));
       if(Number(g.duration)>0){
         timers.set(id,setTimeout(()=>{
-          animateOut(img,()=>{
-            img.remove();
-            timers.delete(id);
-            if(ws?.readyState===1){
-              ws.send(JSON.stringify({type:'event',event:'imageExpired',id,src:g.src}));
-            }
-          });
+          img.remove();
+          timers.delete(id);
+          if(ws?.readyState===1){
+            ws.send(JSON.stringify({type:'event',event:'imageExpired',id,src:g.src}));
+          }
         },Number(g.duration)));
       }
     }

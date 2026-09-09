@@ -1,14 +1,14 @@
-# v0.7 fixes
+# v0.8 fixes
 
 - Fixed scrolling text animation and forces animation restart on each update.
 - Showing text now clears image/video; showing an image/video clears text and the other media type.
 - Reworked image/video placement with explicit inline coordinates, including bottom-center sizing.
 
-# Prism Cloud Overlay v0.7
+# Prism Cloud Overlay v0.8
 
 An isolated mobile/Prism overlay system. It does not modify or depend on OBS.
 
-## v0.7 adds
+## v0.8 adds
 
 - Private Cloudflare R2 media library
 - Upload images/video from the mobile control panel
@@ -37,7 +37,7 @@ Your existing Worker secret `CONTROL_KEY` stays the same.
 
 ## Deploy using your existing GitHub repo
 
-Replace the repository contents with the contents of this v0.7 folder (do not upload the outer folder itself). Commit to the same branch Cloudflare is already watching.
+Replace the repository contents with the contents of this v0.8 folder (do not upload the outer folder itself). Commit to the same branch Cloudflare is already watching.
 
 Cloudflare should automatically redeploy with:
 
@@ -55,10 +55,10 @@ Controller:
 
 The controller asks for your CONTROL_KEY and keeps it in `sessionStorage`, so closing the tab locks the controller again.
 
-## First v0.7 test
+## First v0.8 test
 
 1. Create the R2 bucket.
-2. Push v0.7 to GitHub and let Cloudflare deploy.
+2. Push v0.8 to GitHub and let Cloudflare deploy.
 3. Open the controller and enter your existing CONTROL_KEY.
 4. Upload one small PNG/WebP.
 5. Tap SHOW and verify it appears in the already-working Prism overlay.
@@ -70,7 +70,7 @@ The controller asks for your CONTROL_KEY and keeps it in `sessionStorage`, so cl
 - Images: WebP or optimized PNG.
 - Video: H.264 MP4 is the safest compatibility choice for mobile; WebM can also work depending on the embedded browser.
 - Keep clips short and reasonably compressed.
-- v0.7 intentionally caps panel uploads at 75 MB per file.
+- v0.8 intentionally caps panel uploads at 75 MB per file.
 - Only one overlay video is designed to play at a time.
 
 ## Security model
@@ -86,7 +86,7 @@ The controller asks for your CONTROL_KEY and keeps it in `sessionStorage`, so cl
 Possible later upgrades include folders/categories, drag-and-drop button ordering, saved named presets, soft-delete/trash, thumbnails generated in the cloud, multiple overlay layers, and Streamer.bot API integration.
 
 
-## v0.7 changes
+## v0.8 changes
 - Fixed mobile image positioning with explicit top/bottom/left/right placement.
 - Added top-center, bottom-center, left-center and right-center media positions.
 - Added scrolling ticker text.
@@ -95,7 +95,7 @@ Possible later upgrades include folders/categories, drag-and-drop button orderin
 - Added Slow/Normal/Fast ticker speed.
 
 
-## v0.7 additions
+## v0.8 additions
 
 - Per-image display size: 20%, 30%, 40%, 50%, 60%, 75%, or 100%.
 - `Stay on + layer` allows multiple images/GIFs to remain visible together.
@@ -105,7 +105,7 @@ Possible later upgrades include folders/categories, drag-and-drop button orderin
 - Up to 12 stay-on graphics can be active at once to protect mobile performance.
 
 
-## v0.7 additions
+## v0.8 additions
 
 - Per-image entrance transitions:
   - None
@@ -124,7 +124,7 @@ Possible later upgrades include folders/categories, drag-and-drop button orderin
 - CSS transform + opacity animations only, to remain lightweight for Prism/mobile.
 
 
-## v0.7 fixes and additions
+## v0.8 fixes and additions
 
 - Fixed image state so pressing SHOW on one card only adds that selected image.
 - Stay-on images persist when a temporary/timed image is shown.
@@ -139,3 +139,14 @@ Possible later upgrades include folders/categories, drag-and-drop button orderin
   - Georgia
   - Impact
   - Comic Sans
+
+
+## v0.8 changes
+
+- Removed all image transition controls and animation code.
+- Kept independent per-image SHOW/HIDE behavior.
+- Kept Stay on + layer behavior.
+- Kept per-image size and positioning.
+- Kept timed image cleanup.
+- Kept text scrolling, color, size, position, speed, and font choices.
+- Simpler overlay code for better Prism/mobile reliability.
