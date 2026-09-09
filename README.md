@@ -190,3 +190,24 @@ Added a new **Ride Waits** tab to the mobile controller.
 - The main rain indicator now shows **Rain next hour** instead of using the day's maximum probability.
 - The weather card also shows **High today** separately using `precipitation_probability_max`.
 - Existing temperature, feels-like, condition, precipitation, update time, park name, position, size, and unit controls remain unchanged.
+
+
+## v0.13 — On-Demand Live Radar
+
+- Added a separate **Live Radar** card inside the Parks tab.
+- Locations:
+  - Walt Disney World
+  - Magic Kingdom
+  - EPCOT
+  - Hollywood Studios
+  - Animal Kingdom
+  - Disney Springs
+- Radar controls:
+  - position
+  - size
+  - zoom: Close / Medium / Wide
+- Radar uses the RainViewer Weather Maps API and loops the six most recent past radar frames.
+- Basemap uses OpenStreetMap tiles with attribution.
+- Radar metadata refreshes every 10 minutes only while radar is active.
+- **HIDE RADAR** stops the animation, stops refresh polling, clears radar/base-map images, and hides the card.
+- Radar is an independent layer and can coexist with weather, ride waits, images, and text.

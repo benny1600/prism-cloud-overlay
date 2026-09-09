@@ -65,6 +65,26 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 #weather .w-subscribe{color:#ff5252;animation:weatherPulse 1.4s infinite}
 @keyframes weatherPulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
 
+
+#radar{position:absolute;display:none;pointer-events:none;width:540px;height:590px;transform-origin:center center}
+#radar .radar-card{
+  width:540px;height:590px;box-sizing:border-box;padding:12px;border-radius:18px;
+  background:rgba(8,12,18,.92);border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 12px 30px rgba(0,0,0,.5);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff
+}
+#radar .radar-head{height:42px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 4px}
+#radar .radar-title{font-size:18px;font-weight:800}
+#radar .radar-time{font-size:12px;color:#cfd8dc}
+#radar .radar-map{position:relative;width:512px;height:512px;overflow:hidden;border-radius:13px;background:#17212b}
+#radar .base-layer,#radar .radar-layer{position:absolute;inset:0;overflow:hidden}
+#radar .base-layer img,#radar .radar-layer img{position:absolute;width:256px;height:256px;max-width:none}
+#radar .radar-layer{opacity:.82}
+#radar .radar-center{
+  position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;
+  background:#fff;border:2px solid #111;box-shadow:0 0 0 2px rgba(255,255,255,.35);z-index:5
+}
+#radar .radar-foot{height:24px;display:flex;align-items:flex-end;justify-content:space-between;font-size:10px;color:#b0bec5;padding:0 3px}
+
 #status{display:none;position:absolute;top:8px;left:8px;padding:5px 8px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:12px system-ui,sans-serif}
 </style>
 </head>
@@ -103,15 +123,33 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       </div>
     </div>
   </div>
+  <div id="radar">
+    <div class="radar-card">
+      <div class="radar-head">
+        <div id="radarTitle" class="radar-title">Live Radar • Walt Disney World</div>
+        <div id="radarTime" class="radar-time">Loading…</div>
+      </div>
+      <div id="radarMap" class="radar-map">
+        <div id="radarBase" class="base-layer"></div>
+        <div id="radarLayer" class="radar-layer"></div>
+        <div class="radar-center"></div>
+      </div>
+      <div class="radar-foot">
+        <span>Map © OpenStreetMap contributors</span>
+        <span>Radar © RainViewer</span>
+      </div>
+    </div>
+  </div>
   <div id="status"></div>
 </div>
 <script>
 (() => {
   const q=new URLSearchParams(location.search), room=q.get('room')||'default', debug=q.get('debug')==='1';
-  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), status=document.querySelector('#status');
+  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), radar=document.querySelector('#radar'), radarTitle=document.querySelector('#radarTitle'), radarTime=document.querySelector('#radarTime'), radarBase=document.querySelector('#radarBase'), radarLayer=document.querySelector('#radarLayer'), status=document.querySelector('#status');
   let ws,retry=1000,currentVideoSrc=''; const timers=new Map(); if(debug)status.style.display='block';
   let rideItems=[],rideIndex=0,rideCycleTimer=null,rideRefreshTimer=null,rideConfigKey='';
   let weatherRefreshTimer=null,weatherConfigKey='';
+  let radarFrames=[],radarFrameIndex=0,radarAnimTimer=null,radarRefreshTimer=null,radarConfigKey='',radarToken=0;
   const setStatus=s=>{if(debug)status.textContent=s};
   const allowedPositions=new Set(['center','top','bottom','left','right','top-left','top-right','bottom-left','bottom-right']);
 
@@ -388,6 +426,155 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     weatherRefreshTimer=setInterval(()=>refreshWeather(cfg),600000);
   }
 
+
+  const RADAR_LOCATIONS={
+    wdw:{label:'Walt Disney World',lat:28.3852,lon:-81.5639},
+    mk:{label:'Magic Kingdom',lat:28.417663,lon:-81.581212},
+    epcot:{label:'EPCOT',lat:28.374694,lon:-81.549404},
+    hs:{label:"Disney's Hollywood Studios",lat:28.357529,lon:-81.558271},
+    ak:{label:"Disney's Animal Kingdom",lat:28.359566,lon:-81.591172},
+    springs:{label:'Disney Springs',lat:28.371496,lon:-81.519005}
+  };
+
+  function tileXY(lat,lon,z){
+    const n=Math.pow(2,z);
+    const x=(lon+180)/360*n;
+    const latRad=lat*Math.PI/180;
+    const y=(1-Math.asinh(Math.tan(latRad))/Math.PI)/2*n;
+    return{x,y};
+  }
+
+  function buildBaseMap(loc,z){
+    radarBase.innerHTML='';
+    const c=tileXY(loc.lat,loc.lon,z);
+    const cx=Math.floor(c.x),cy=Math.floor(c.y);
+    const px=(c.x-cx)*256,py=(c.y-cy)*256;
+
+    for(let dy=-1;dy<=1;dy++){
+      for(let dx=-1;dx<=1;dx++){
+        const tx=cx+dx,ty=cy+dy;
+        const img=document.createElement('img');
+        img.src=`https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`;
+        img.alt='';
+        img.style.left=`${256 + dx*256 - px}px`;
+        img.style.top=`${256 + dy*256 - py}px`;
+        radarBase.appendChild(img);
+      }
+    }
+  }
+
+  function renderRadarFrame(frame,host,loc,z,token){
+    if(token!==radarToken || !frame)return;
+    const c=tileXY(loc.lat,loc.lon,z);
+    const cx=Math.floor(c.x),cy=Math.floor(c.y);
+    const px=(c.x-cx)*256,py=(c.y-cy)*256;
+    const frag=document.createDocumentFragment();
+
+    for(let dy=-1;dy<=1;dy++){
+      for(let dx=-1;dx<=1;dx++){
+        const tx=cx+dx,ty=cy+dy;
+        const img=document.createElement('img');
+        img.src=`${host}${frame.path}/256/${z}/${tx}/${ty}/2/1_1.png`;
+        img.alt='';
+        img.style.left=`${256 + dx*256 - px}px`;
+        img.style.top=`${256 + dy*256 - py}px`;
+        frag.appendChild(img);
+      }
+    }
+    radarLayer.replaceChildren(frag);
+    const d=new Date(Number(frame.time)*1000);
+    radarTime.textContent=`Radar: ${d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`;
+  }
+
+  async function loadRadar(cfg,token){
+    const loc=RADAR_LOCATIONS[cfg.park]||RADAR_LOCATIONS.wdw;
+    radarTitle.textContent=`Live Radar • ${loc.label}`;
+    radarTime.textContent='Loading…';
+    buildBaseMap(loc,cfg.zoom);
+
+    try{
+      const r=await fetch('/radar-data',{cache:'no-store'});
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const data=await r.json();
+      if(token!==radarToken)return;
+
+      radarFrames=Array.isArray(data.frames)?data.frames:[];
+      if(!radarFrames.length)throw new Error('No radar frames');
+
+      let i=0;
+      const host=data.host||'https://tilecache.rainviewer.com';
+      const play=()=>{
+        if(token!==radarToken || !radarFrames.length)return;
+        renderRadarFrame(radarFrames[i%radarFrames.length],host,loc,cfg.zoom,token);
+        i=(i+1)%radarFrames.length;
+      };
+      play();
+      clearInterval(radarAnimTimer);
+      radarAnimTimer=setInterval(play,800);
+      radar.style.display='block';
+    }catch(e){
+      console.warn('Radar:',e);
+      if(token===radarToken){
+        radarTime.textContent='Radar unavailable';
+        radar.style.display='block';
+      }
+    }
+  }
+
+  function stopRadar(){
+    radarToken++;
+    clearInterval(radarAnimTimer); radarAnimTimer=null;
+    clearInterval(radarRefreshTimer); radarRefreshTimer=null;
+    radarFrames=[]; radarFrameIndex=0; radarConfigKey='';
+    radarLayer.replaceChildren();
+    radarBase.replaceChildren();
+    radar.style.display='none';
+  }
+
+  function applyRadar(cfg){
+    if(!cfg){ stopRadar(); return; }
+
+    const size=Math.max(20,Math.min(100,Number(cfg.size||55)));
+    const scale=size/100;
+    const pos=cfg.position||'center';
+    radar.style.left=radar.style.right=radar.style.top=radar.style.bottom='auto';
+
+    const margin=16;
+    if(pos.includes('left'))radar.style.left=`${margin}px`;
+    else if(pos.includes('right'))radar.style.right=`${margin}px`;
+    else radar.style.left='50%';
+
+    if(pos.includes('top'))radar.style.top=`${margin}px`;
+    else if(pos.includes('bottom'))radar.style.bottom=`${margin}px`;
+    else radar.style.top='50%';
+
+    const transforms=[`scale(${scale})`];
+    if(!pos.includes('left')&&!pos.includes('right'))transforms.push('translateX(-50%)');
+    if(!pos.includes('top')&&!pos.includes('bottom'))transforms.push('translateY(-50%)');
+    radar.style.transform=transforms.join(' ');
+
+    const key=`${cfg.park}|${cfg.position}|${cfg.size}|${cfg.zoom}`;
+    if(key===radarConfigKey){
+      radar.style.display='block';
+      return;
+    }
+
+    radarConfigKey=key;
+    clearInterval(radarAnimTimer);
+    clearInterval(radarRefreshTimer);
+    radarLayer.replaceChildren();
+    radarBase.replaceChildren();
+    const token=++radarToken;
+    loadRadar(cfg,token);
+
+    // Refresh metadata/frames every 10 minutes only while radar is shown.
+    radarRefreshTimer=setInterval(()=>{
+      if(token!==radarToken)return;
+      clearInterval(radarAnimTimer);
+      loadRadar(cfg,token);
+    },600000);
+  }
+
   function applyText(t){
     if(!t?.value){textInner.textContent='';text.style.display='none';return}
     textInner.textContent=t.value;text.style.display='block';
@@ -411,6 +598,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     applyText(state.text);
     applyRideWait(state.rideWait);
     applyWeather(state.weather);
+    applyRadar(state.radar);
   }
 
   video.addEventListener('ended',()=>{video.style.display='none';if(ws?.readyState===1)ws.send(JSON.stringify({type:'event',event:'videoEnded',src:currentVideoSrc}))});

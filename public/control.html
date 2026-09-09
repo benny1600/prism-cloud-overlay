@@ -36,6 +36,54 @@
     <h2 style="margin-top:0">Parks</h2>
     <p class="status">Ride waits and weather are independent overlay layers. You can show both at the same time.</p>
     <div id="parkGrid" class="library" style="margin-top:12px"></div>
+
+    <div class="media-card" style="margin-top:14px">
+      <div class="info">
+        <div class="name">Live Radar</div>
+        <div class="meta">On-demand recent radar loop. Stops loading when hidden.</div>
+        <div class="settings" style="margin-top:8px">
+          <select id="radarPark" class="field">
+            <option value="wdw" selected>Walt Disney World</option>
+            <option value="mk">Magic Kingdom</option>
+            <option value="epcot">EPCOT</option>
+            <option value="hs">Hollywood Studios</option>
+            <option value="ak">Animal Kingdom</option>
+            <option value="springs">Disney Springs</option>
+          </select>
+          <select id="radarPos" class="field">
+            <option value="center" selected>Center</option>
+            <option value="top">Top center</option>
+            <option value="bottom">Bottom center</option>
+            <option value="left">Left center</option>
+            <option value="right">Right center</option>
+            <option value="top-left">Top left</option>
+            <option value="top-right">Top right</option>
+            <option value="bottom-left">Bottom left</option>
+            <option value="bottom-right">Bottom right</option>
+          </select>
+        </div>
+        <div class="settings">
+          <select id="radarSize" class="field">
+            <option value="30">30% size</option>
+            <option value="40">40% size</option>
+            <option value="55" selected>55% size</option>
+            <option value="70">70% size</option>
+            <option value="85">85% size</option>
+            <option value="100">100% size</option>
+          </select>
+          <select id="radarZoom" class="field">
+            <option value="7">Close</option>
+            <option value="6" selected>Medium</option>
+            <option value="5">Wide</option>
+          </select>
+        </div>
+        <div class="settings">
+          <button id="showRadar" class="bigbtn play">SHOW RADAR</button>
+          <button id="hideRadar" class="bigbtn secondary">HIDE RADAR</button>
+        </div>
+      </div>
+    </div>
+
     <div class="settings" style="margin-top:12px">
       <button id="hideRideWait" class="bigbtn secondary">HIDE RIDE WAITS</button>
       <button id="hideWeather" class="bigbtn secondary">HIDE WEATHER</button>
@@ -244,6 +292,14 @@
   renderParkCards();
   $('#hideRideWait').onclick=()=>cmd({action:'hideRideWait'});
   $('#hideWeather').onclick=()=>cmd({action:'hideWeather'});
+  $('#showRadar').onclick=()=>cmd({
+    action:'showRadar',
+    park:$('#radarPark').value,
+    position:$('#radarPos').value,
+    size:Number($('#radarSize').value),
+    zoom:Number($('#radarZoom').value)
+  });
+  $('#hideRadar').onclick=()=>cmd({action:'hideRadar'});
 
   $('#refresh').onclick=loadLibrary;
   $('#uploadBtn').onclick=async()=>{const f=$('#fileInput').files[0];if(!f){note('Choose a file first');return}if(f.size>75*1024*1024){note('File is over 75 MB');return}$('#uploadStatus').textContent=`Uploading ${f.name}…`;try{await api(`/api/media/upload?name=${encodeURIComponent(f.name)}`,{method:'POST',headers:{'content-type':f.type||'application/octet-stream','X-File-Name':f.name},body:f});$('#uploadStatus').textContent='Upload complete';$('#fileInput').value='';note('Media uploaded');loadLibrary();document.querySelector('[data-tab="library"]').click()}catch(e){$('#uploadStatus').textContent=e.message}};

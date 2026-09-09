@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ graphics: [], video: null, text: null, rideWait: null, weather: null, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, updatedAt: null });
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml",
@@ -205,6 +205,15 @@ export class OverlayRoom extends DurableObject {
         };
         break;
       case "hideWeather": next.weather = null; break;
+      case "showRadar":
+        next.radar = {
+          park: ["mk","epcot","hs","ak","springs","wdw"].includes(String(command.park || "").toLowerCase()) ? String(command.park).toLowerCase() : "wdw",
+          position: ["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position || "")) ? String(command.position) : "center",
+          size: Math.max(20, Math.min(100, Number(command.size || 55))),
+          zoom: [5,6,7].includes(Number(command.zoom)) ? Number(command.zoom) : 6
+        };
+        break;
+      case "hideRadar": next.radar = null; break;
       case "clear": next = { ...DEFAULT_STATE }; break;
       default: return json({ ok: false, error: "Unknown action" }, { status: 400 });
     }
@@ -371,6 +380,27 @@ async function serveWeatherData(url) {
   }
 }
 
+
+async function serveRadarData() {
+  try {
+    const upstream = await fetch("https://api.rainviewer.com/public/weather-maps.json", {
+      headers: { "accept": "application/json" }
+    });
+    if (!upstream.ok) throw new Error(`RainViewer HTTP ${upstream.status}`);
+    const data = await upstream.json();
+    const past = Array.isArray(data?.radar?.past) ? data.radar.past.slice(-6) : [];
+    return json({
+      generated: data.generated || null,
+      host: data.host || "https://tilecache.rainviewer.com",
+      frames: past.map(f => ({ time: f.time, path: f.path }))
+    }, {
+      headers: { "cache-control": "public, max-age=120" }
+    });
+  } catch (error) {
+    return json({ ok: false, error: "Unable to load radar metadata" }, { status: 502 });
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -401,6 +431,10 @@ export default {
 
     if (url.pathname === "/weather-data" && request.method === "GET") {
       return serveWeatherData(url);
+    }
+
+    if (url.pathname === "/radar-data" && request.method === "GET") {
+      return serveRadarData();
     }
 
     if (url.pathname.startsWith("/api/media/")) {
