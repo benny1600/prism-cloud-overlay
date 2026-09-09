@@ -349,6 +349,7 @@ async function serveWeatherData(url) {
     latitude: String(park.latitude),
     longitude: String(park.longitude),
     current: ["temperature_2m","apparent_temperature","precipitation","weather_code"].join(","),
+    hourly: "precipitation_probability",
     daily: "precipitation_probability_max",
     temperature_unit: unit === "c" ? "celsius" : "fahrenheit",
     precipitation_unit: "inch",

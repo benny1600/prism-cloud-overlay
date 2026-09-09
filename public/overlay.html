@@ -53,7 +53,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 #weather .w-location{font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
 #weather .w-condition{font-size:13px;color:#cfd8dc}
 #weather .w-rain-row{margin-top:6px;display:flex;flex-direction:column;gap:4px}
-#weather .w-rain-header{display:flex;justify-content:space-between;font-size:13px;align-items:center}
+#weather .w-rain-header{display:flex;justify-content:space-between;font-size:13px;align-items:center;gap:8px}
 #weather .w-rain-percent{font-weight:600}
 #weather .w-rain-percent.high{color:#ff5252}
 #weather .w-rain-percent.low{color:#4caf50}
@@ -91,10 +91,14 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
         <div class="w-location"><span>📍</span><span id="wLocation">Walt Disney World</span></div>
         <div id="wCondition" class="w-condition">Loading current weather…</div>
         <div class="w-rain-row">
-          <div class="w-rain-header"><span>🌧️ Rain chance today</span><span id="wRainPct" class="w-rain-percent">--%</span></div>
+          <div class="w-rain-header"><span>🌧️ Rain next hour</span><span id="wRainPct" class="w-rain-percent">--%</span></div>
           <div class="w-rain-bar"><div id="wRainFill" class="w-rain-fill"></div></div>
         </div>
-        <div class="w-meta"><span id="wPrecip">Precip: -- in</span><span id="wUpdated">Updated: --</span></div>
+        <div class="w-meta">
+          <span id="wDailyRain">High today: --%</span>
+          <span id="wPrecip">Precip: -- in</span>
+          <span id="wUpdated">Updated: --</span>
+        </div>
         <div class="w-footer"><span class="w-channel">Not So Scary Mary TV</span><span class="w-subscribe">🔥 Subscribe!</span></div>
       </div>
     </div>
@@ -104,7 +108,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 <script>
 (() => {
   const q=new URLSearchParams(location.search), room=q.get('room')||'default', debug=q.get('debug')==='1';
-  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), status=document.querySelector('#status');
+  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), status=document.querySelector('#status');
   let ws,retry=1000,currentVideoSrc=''; const timers=new Map(); if(debug)status.style.display='block';
   let rideItems=[],rideIndex=0,rideCycleTimer=null,rideRefreshTimer=null,rideConfigKey='';
   let weatherRefreshTimer=null,weatherConfigKey='';
@@ -288,6 +292,27 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     catch{return'--';}
   }
 
+
+  function nextHourRainChance(data){
+    const times=Array.isArray(data?.hourly?.time)?data.hourly.time:[];
+    const probs=Array.isArray(data?.hourly?.precipitation_probability)?data.hourly.precipitation_probability:[];
+    if(!times.length || !probs.length) return 0;
+
+    const currentTime = data?.current?.time ? new Date(data.current.time).getTime() : Date.now();
+
+    // Prefer the first forecast hour at or after the current weather timestamp.
+    for(let i=0;i<times.length;i++){
+      const t=new Date(times[i]).getTime();
+      if(Number.isFinite(t) && t>=currentTime){
+        const p=Number(probs[i]);
+        return Number.isFinite(p)?p:0;
+      }
+    }
+
+    const last=Number(probs[probs.length-1]);
+    return Number.isFinite(last)?last:0;
+  }
+
   async function refreshWeather(cfg){
     try{
       const r=await fetch(`/weather-data?park=${encodeURIComponent(cfg.park)}&unit=${encodeURIComponent(cfg.unit)}`,{cache:'no-store'});
@@ -297,9 +322,11 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       const temp=Math.round(current.temperature_2m);
       const feels=Math.round(current.apparent_temperature);
       const precip=current.precipitation!=null?Number(current.precipitation).toFixed(2):null;
-      const chance=Array.isArray(daily.precipitation_probability_max)?daily.precipitation_probability_max[0]:0;
+      const nextHourChance=nextHourRainChance(data);
+      const dailyMax=Array.isArray(daily.precipitation_probability_max)?daily.precipitation_probability_max[0]:0;
       const desc=weatherDescription(current.weather_code||0);
-      const clamped=Math.max(0,Math.min(100,Number(chance||0)));
+      const clamped=Math.max(0,Math.min(100,Number(nextHourChance||0)));
+      const dailyClamped=Math.max(0,Math.min(100,Number(dailyMax||0)));
 
       wIcon.textContent=desc.icon;
       wTemp.textContent=`${temp}°`;
@@ -311,6 +338,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       if(clamped>=60)wRainPct.classList.add('high');
       else if(clamped<=30)wRainPct.classList.add('low');
       wRainFill.style.width=`${clamped}%`;
+      wDailyRain.textContent=`High today: ${Math.round(dailyClamped)}%`;
       wPrecip.textContent=`Precip: ${precip!=null?precip+' in':'--'}`;
       wUpdated.textContent=`Updated: ${current.time?formatWeatherTime(current.time):'--'}`;
       weather.style.display='block';

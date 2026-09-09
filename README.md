@@ -182,3 +182,11 @@ Added a new **Ride Waits** tab to the mobile controller.
 - Weather has position, size, and Fahrenheit/Celsius controls.
 - Ride Waits minimum size is now 2%, with presets 2%, 3%, 5%, 7%, 10%, 15%, 20% and larger.
 - Weather and Ride Waits are independent layers and can coexist with images/text.
+
+
+## v0.12 — Rain Chance Fix
+
+- Weather now requests hourly `precipitation_probability` from Open-Meteo.
+- The main rain indicator now shows **Rain next hour** instead of using the day's maximum probability.
+- The weather card also shows **High today** separately using `precipitation_probability_max`.
+- Existing temperature, feels-like, condition, precipitation, update time, park name, position, size, and unit controls remain unchanged.
