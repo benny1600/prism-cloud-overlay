@@ -9,7 +9,22 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 *{box-sizing:border-box}
 #stage{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 #graphics{position:absolute;inset:0}
-.graphic{position:absolute;display:block;object-fit:contain}
+.graphic{position:absolute;display:block;object-fit:contain;opacity:1;will-change:transform,opacity}
+.graphic.animating{transition-property:transform,opacity;transition-timing-function:ease}
+.graphic.in-fade{opacity:0}
+.graphic.in-slide-up{opacity:0;transform:translate(-50%,calc(-50% + 40px))}
+.graphic.in-slide-down{opacity:0;transform:translate(-50%,calc(-50% - 40px))}
+.graphic.in-slide-left{opacity:0;transform:translate(calc(-50% + 40px),-50%)}
+.graphic.in-slide-right{opacity:0;transform:translate(calc(-50% - 40px),-50%)}
+.graphic.in-zoom{opacity:0;transform:translate(-50%,-50%) scale(.78)}
+.graphic.in-pop{opacity:0;transform:translate(-50%,-50%) scale(.55)}
+.graphic.out-fade{opacity:0!important}
+.graphic.out-slide-up{opacity:0!important;transform:translateY(-40px)!important}
+.graphic.out-slide-down{opacity:0!important;transform:translateY(40px)!important}
+.graphic.out-slide-left{opacity:0!important;transform:translateX(-40px)!important}
+.graphic.out-slide-right{opacity:0!important;transform:translateX(40px)!important}
+.graphic.out-zoom{opacity:0!important;transform:scale(.78)!important}
+.graphic.out-pop{opacity:0!important;transform:scale(.55)!important}
 #video{position:absolute;display:none;object-fit:contain}
 #text{
   position:absolute;left:3%;right:3%;bottom:5%;display:none;overflow:hidden;
@@ -59,26 +74,118 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     }
   }
 
+  function baseTransformFor(pos){
+    const safe=allowedPositions.has(pos)?pos:'center';
+    if(safe==='center') return 'translate(-50%,-50%)';
+    if(safe==='top' || safe==='bottom') return 'translateX(-50%)';
+    if(safe==='left' || safe==='right') return 'translateY(-50%)';
+    return 'none';
+  }
+
+  function inStartTransform(pos,type){
+    const base=baseTransformFor(pos);
+    const map={
+      'slide-up':'translateY(40px)',
+      'slide-down':'translateY(-40px)',
+      'slide-left':'translateX(40px)',
+      'slide-right':'translateX(-40px)',
+      'zoom':'scale(.78)',
+      'pop':'scale(.55)'
+    };
+    if(type==='fade' || type==='none') return base;
+    const extra=map[type]||'';
+    return base==='none'?extra:`${base} ${extra}`;
+  }
+
+  function outTransform(pos,type){
+    const base=baseTransformFor(pos);
+    const map={
+      'slide-up':'translateY(-40px)',
+      'slide-down':'translateY(40px)',
+      'slide-left':'translateX(-40px)',
+      'slide-right':'translateX(40px)',
+      'zoom':'scale(.78)',
+      'pop':'scale(.55)'
+    };
+    if(type==='fade' || type==='none') return base;
+    const extra=map[type]||'';
+    return base==='none'?extra:`${base} ${extra}`;
+  }
+
+  function animateIn(img,g){
+    const type=g.transitionIn||'fade';
+    const ms=Math.max(100,Math.min(2000,Number(g.transitionMs||500)));
+    img.style.transition='none';
+    img.style.opacity=type==='none'?'1':'0';
+    img.style.transform=inStartTransform(g.position,type);
+    void img.offsetWidth;
+    img.style.transition=`transform ${ms}ms ease, opacity ${ms}ms ease`;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      img.style.opacity='1';
+      img.style.transform=baseTransformFor(g.position);
+    }));
+  }
+
+  function animateOut(img,g,onDone){
+    if(img.dataset.removing==='1')return;
+    img.dataset.removing='1';
+    const type=g.transitionOut||'fade';
+    const ms=Math.max(100,Math.min(2000,Number(g.transitionMs||500)));
+    img.style.transition=`transform ${ms}ms ease, opacity ${ms}ms ease`;
+    if(type==='none'){img.style.opacity='0';setTimeout(onDone,0);return}
+    img.style.opacity='0';
+    img.style.transform=outTransform(g.position,type);
+    setTimeout(onDone,ms+30);
+  }
+
   function renderGraphics(state){
     const items=Array.isArray(state.graphics)
       ? state.graphics
       : (state.graphic?.src ? [{...state.graphic,id:state.graphic.id||state.graphic.src,size:40}] : []);
     const wanted=new Set(items.map(g=>String(g.id||g.src)));
+
     for(const child of [...graphics.children]){
-      if(!wanted.has(child.dataset.id)){clearTimeout(timers.get(child.dataset.id));timers.delete(child.dataset.id);child.remove()}
+      if(!wanted.has(child.dataset.id)){
+        clearTimeout(timers.get(child.dataset.id));
+        timers.delete(child.dataset.id);
+        child.remove();
+      }
     }
+
     for(const g of items){
       if(!g?.src)continue;
       const id=String(g.id||g.src);
       let img=[...graphics.children].find(x=>x.dataset.id===id);
+      const isNew=!img;
+
       if(!img){
-        img=document.createElement('img');img.className='graphic';img.dataset.id=id;img.alt='';graphics.appendChild(img)
+        img=document.createElement('img');
+        img.className='graphic';
+        img.dataset.id=id;
+        img.alt='';
+        graphics.appendChild(img);
       }
+
       if(img.getAttribute('src')!==g.src)img.src=g.src;
-      img.style.objectFit=g.fit||'contain';place(img,g.position,g.size);
+      img.style.objectFit=g.fit||'contain';
+      place(img,g.position,g.size);
+      img.dataset.removing='0';
+
+      if(isNew) animateIn(img,g);
+
       clearTimeout(timers.get(id));
+
+      if(g.removeAt){
+        animateOut(img,g,()=>{img.remove();timers.delete(id)});
+        continue;
+      }
+
       if(Number(g.duration)>0){
-        timers.set(id,setTimeout(()=>{img.remove();timers.delete(id)},Number(g.duration)));
+        const outMs=Math.max(100,Math.min(2000,Number(g.transitionMs||500)));
+        const delay=Math.max(0,Number(g.duration)-outMs);
+        timers.set(id,setTimeout(()=>{
+          animateOut(img,g,()=>{img.remove();timers.delete(id)});
+        },delay));
       }
     }
   }

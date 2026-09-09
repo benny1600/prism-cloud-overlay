@@ -114,7 +114,10 @@ export class OverlayRoom extends DurableObject {
           duration: Math.max(0, Number(command.duration || 0)),
           fit: command.fit || "contain",
           position: command.position || "center",
-          size: Math.max(10, Math.min(100, Number(command.size || 40)))
+          size: Math.max(10, Math.min(100, Number(command.size || 40))),
+          transitionIn: command.transitionIn || "fade",
+          transitionOut: command.transitionOut || "fade",
+          transitionMs: Math.max(100, Math.min(2000, Number(command.transitionMs || 500)))
         };
         const currentGraphics = Array.isArray(current.graphics)
           ? current.graphics
@@ -133,9 +136,13 @@ export class OverlayRoom extends DurableObject {
           : (current.graphic ? [{ ...current.graphic, id: current.graphic.id || "legacy" }] : []);
         const targetSrc = String(command.src || "");
         const targetId = String(command.id || "");
+        const now = Date.now();
         next.graphics = (targetSrc || targetId)
-          ? currentGraphics.filter(g => !(targetSrc && g?.src === targetSrc) && !(targetId && g?.id === targetId))
-          : [];
+          ? currentGraphics.map(g => {
+              const match = (targetSrc && g?.src === targetSrc) || (targetId && g?.id === targetId);
+              return match ? { ...g, removeAt: now, transitionOut: command.transitionOut || g.transitionOut || "fade", transitionMs: Math.max(100, Math.min(2000, Number(command.transitionMs || g.transitionMs || 500))) } : g;
+            })
+          : currentGraphics.map(g => ({ ...g, removeAt: now, transitionOut: command.transitionOut || g.transitionOut || "fade", transitionMs: Math.max(100, Math.min(2000, Number(command.transitionMs || g.transitionMs || 500))) }));
         delete next.graphic;
         break;
       }

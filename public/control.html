@@ -57,19 +57,99 @@
   function renderCard(item){
     const card=document.createElement('div');card.className='media-card';
     const prev=item.kind==='image'?`<img loading="lazy" src="${item.url}" alt="">`:item.kind==='video'?`<video preload="metadata" muted src="${item.url}"></video>`:`<div>${item.kind.toUpperCase()}</div>`;
+
     const imageControls=item.kind==='image'
-      ? `<div class="settings"><select class="field size"><option value="20">20% size</option><option value="30">30% size</option><option value="40" selected>40% size</option><option value="50">50% size</option><option value="60">60% size</option><option value="75">75% size</option><option value="100">100% size</option></select><select class="field dur"><option value="0">Stay on + layer</option><option value="5000">5 sec</option><option value="8000">8 sec</option><option value="10000">10 sec</option></select></div>`
+      ? `<div class="settings">
+          <select class="field size">
+            <option value="20">20% size</option><option value="30">30% size</option><option value="40" selected>40% size</option>
+            <option value="50">50% size</option><option value="60">60% size</option><option value="75">75% size</option><option value="100">100% size</option>
+          </select>
+          <select class="field dur">
+            <option value="0">Stay on + layer</option><option value="5000">5 sec</option><option value="8000">8 sec</option><option value="10000">10 sec</option>
+          </select>
+        </div>
+        <div class="settings">
+          <select class="field tin">
+            <option value="none">In: None</option>
+            <option value="fade" selected>In: Fade</option>
+            <option value="slide-up">In: Slide up</option>
+            <option value="slide-down">In: Slide down</option>
+            <option value="slide-left">In: Slide left</option>
+            <option value="slide-right">In: Slide right</option>
+            <option value="zoom">In: Zoom</option>
+            <option value="pop">In: Pop</option>
+          </select>
+          <select class="field tout">
+            <option value="none">Out: None</option>
+            <option value="fade" selected>Out: Fade</option>
+            <option value="slide-up">Out: Slide up</option>
+            <option value="slide-down">Out: Slide down</option>
+            <option value="slide-left">Out: Slide left</option>
+            <option value="slide-right">Out: Slide right</option>
+            <option value="zoom">Out: Zoom</option>
+            <option value="pop">Out: Pop</option>
+          </select>
+        </div>
+        <div class="settings">
+          <select class="field tms">
+            <option value="250">250 ms</option>
+            <option value="500" selected>500 ms</option>
+            <option value="750">750 ms</option>
+            <option value="1000">1 sec</option>
+          </select>
+          <span></span>
+        </div>`
       : '';
+
     card.innerHTML=`<div class="preview">${prev}</div><div class="info"><div class="name" title="${esc(item.name)}">${esc(item.name)}</div><div class="meta">${esc(item.kind)} • ${fmt(item.size)}</div><div class="settings"><select class="field pos"><option value="center">Center</option><option value="top">Top center</option><option value="bottom">Bottom center</option><option value="left">Left center</option><option value="right">Right center</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option></select><span></span></div>${imageControls}<div class="actions"><button class="play show">${item.kind==='video'?'PLAY':'SHOW'}</button><button class="secondary rename">RENAME</button><button class="danger delete">DELETE</button><button class="secondary hide">HIDE/STOP</button></div></div>`;
+
     const pos=card.querySelector('.pos'),dur=card.querySelector('.dur'),size=card.querySelector('.size');
+    const tin=card.querySelector('.tin'),tout=card.querySelector('.tout'),tms=card.querySelector('.tms');
+
     card.querySelector('.show').onclick=()=>{
-      if(item.kind==='image')cmd({action:'showImage',src:item.url,duration:Number(dur?.value||0),position:pos.value,size:Number(size?.value||40)});
+      if(item.kind==='image')cmd({
+        action:'showImage',
+        src:item.url,
+        duration:Number(dur?.value||0),
+        position:pos.value,
+        size:Number(size?.value||40),
+        transitionIn:tin?.value||'fade',
+        transitionOut:tout?.value||'fade',
+        transitionMs:Number(tms?.value||500)
+      });
       else if(item.kind==='video')cmd({action:'playVideo',src:item.url,position:pos.value,volume:1});
       else note('Audio-only playback is not enabled yet')
     };
-    card.querySelector('.hide').onclick=()=>cmd({action:item.kind==='video'?'stopVideo':'hideImage',src:item.kind==='image'?item.url:undefined});
-    card.querySelector('.delete').onclick=async()=>{if(!confirm(`Delete “${item.name}” permanently from cloud storage?`))return;try{await api('/api/media/delete',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key:item.key})});if(item.kind==='image')cmd({action:'hideImage',src:item.url});note('Deleted');loadLibrary()}catch(e){note(e.message)}};
-    card.querySelector('.rename').onclick=async()=>{const name=prompt('New display name:',item.name);if(!name||name===item.name)return;try{await api('/api/media/rename',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key:item.key,name})});note('Renamed');loadLibrary()}catch(e){note(e.message)}};
+
+    card.querySelector('.hide').onclick=()=>cmd(
+      item.kind==='video'
+        ? {action:'stopVideo'}
+        : {
+            action:'hideImage',
+            src:item.url,
+            transitionOut:tout?.value||'fade',
+            transitionMs:Number(tms?.value||500)
+          }
+    );
+
+    card.querySelector('.delete').onclick=async()=>{
+      if(!confirm(`Delete “${item.name}” permanently from cloud storage?`))return;
+      try{
+        await api('/api/media/delete',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key:item.key})});
+        if(item.kind==='image')cmd({action:'hideImage',src:item.url,transitionOut:tout?.value||'fade',transitionMs:Number(tms?.value||500)});
+        note('Deleted');loadLibrary()
+      }catch(e){note(e.message)}
+    };
+
+    card.querySelector('.rename').onclick=async()=>{
+      const name=prompt('New display name:',item.name);
+      if(!name||name===item.name)return;
+      try{
+        await api('/api/media/rename',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key:item.key,name})});
+        note('Renamed');loadLibrary()
+      }catch(e){note(e.message)}
+    };
+
     grid.appendChild(card);
   }
   $('#refresh').onclick=loadLibrary;
