@@ -1,0 +1,1 @@
+Place optimized PNG/WebP/SVG graphics in this folder.

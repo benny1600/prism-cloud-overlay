@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "prism-cloud-overlay",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-09",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/ws/*", "/api/*"]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "OVERLAY_ROOMS",
+        "class_name": "OverlayRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["OverlayRoom"]
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300">
+<rect x="40" y="40" width="1120" height="220" rx="40" fill="#111" fill-opacity=".85"/>
+<text x="600" y="145" text-anchor="middle" font-family="Arial,sans-serif" font-size="58" font-weight="700" fill="white">MOBILE OVERLAY TEST</text>
+<text x="600" y="205" text-anchor="middle" font-family="Arial,sans-serif" font-size="30" fill="white">Cloud-controlled graphic</text>
+</svg>

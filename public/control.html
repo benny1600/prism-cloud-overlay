@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Overlay Remote</title>
+<style>
+  body{margin:0;background:#111;color:#fff;font-family:system-ui,sans-serif}
+  main{max-width:760px;margin:auto;padding:18px}
+  h1{font-size:26px;margin:0 0 8px}
+  .sub{opacity:.72;margin-bottom:18px}
+  .status{padding:10px 12px;border:1px solid #444;border-radius:12px;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  button,input{font:inherit}
+  button{min-height:68px;border:0;border-radius:15px;font-weight:800;font-size:17px;padding:10px}
+  .wide{grid-column:1/-1}
+  .danger{min-height:80px}
+  .card{margin-top:18px;padding:14px;border:1px solid #333;border-radius:16px}
+  input{width:100%;padding:12px;margin:7px 0 10px;border-radius:10px;border:1px solid #444;background:#191919;color:#fff}
+  small{opacity:.7}
+</style>
+</head>
+<body>
+<main>
+  <h1>Mobile Overlay Remote</h1>
+  <div class="sub">Separate Prism/mobile prototype</div>
+  <div class="status" id="status">Not connected</div>
+
+  <div class="grid">
+    <button onclick="cmd({action:'showImage',src:'/assets/images/sample.svg',duration:8000})">SHOW GRAPHIC</button>
+    <button onclick="cmd({action:'hideImage'})">HIDE GRAPHIC</button>
+    <button onclick="cmd({action:'showText',value:'LIVE • MOBILE STREAM',position:'bottom'})">SHOW TEXT</button>
+    <button onclick="cmd({action:'hideText'})">HIDE TEXT</button>
+    <button class="wide danger" onclick="cmd({action:'clear'})">CLEAR SCREEN</button>
+  </div>
+
+  <div class="card">
+    <strong>Custom image</strong>
+    <input id="img" placeholder="/assets/images/your-image.webp">
+    <button class="wide" onclick="cmd({action:'showImage',src:document.querySelector('#img').value,duration:0})">SHOW CUSTOM IMAGE</button>
+  </div>
+
+  <div class="card">
+    <strong>Custom video</strong>
+    <input id="vid" placeholder="/assets/video/your-video.mp4">
+    <button class="wide" onclick="cmd({action:'playVideo',src:document.querySelector('#vid').value,volume:1})">PLAY VIDEO</button>
+    <button class="wide" onclick="cmd({action:'stopVideo'})">STOP VIDEO</button>
+  </div>
+
+  <div class="card">
+    <small>
+      Open this page with ?room=YOURROOM&amp;key=YOUR_CONTROL_KEY.
+      Keep the control URL private.
+    </small>
+  </div>
+</main>
+<script>
+(() => {
+  const p = new URLSearchParams(location.search);
+  const room = p.get("room") || "default";
+  const key = p.get("key") || "";
+  const status = document.querySelector("#status");
+  let ws, retry = 1000;
+
+  window.cmd = function(payload){
+    if(ws?.readyState === WebSocket.OPEN){
+      ws.send(JSON.stringify(payload));
+    } else {
+      status.textContent = "Not connected — command not sent";
+    }
+  };
+
+  function connect(){
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    ws = new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}?role=control&key=${encodeURIComponent(key)}`);
+    ws.onopen = () => { retry=1000; status.textContent=`Connected • room: ${room}`; };
+    ws.onclose = e => {
+      status.textContent = e.code === 1008 ? "Unauthorized" : "Disconnected — reconnecting";
+      setTimeout(connect,retry);
+      retry=Math.min(retry*1.6,10000);
+    };
+    ws.onerror = () => ws.close();
+  }
+  connect();
+})();
+</script>
+</body>
+</html>
