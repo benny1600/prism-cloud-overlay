@@ -8,8 +8,9 @@
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 *{box-sizing:border-box}
 #stage{position:fixed;inset:0;pointer-events:none;overflow:hidden}
-.media{position:absolute;display:none;box-sizing:border-box}
-#graphic,#video{object-fit:contain}
+#graphics{position:absolute;inset:0}
+.graphic{position:absolute;display:block;object-fit:contain}
+#video{position:absolute;display:none;object-fit:contain}
 #text{
   position:absolute;left:3%;right:3%;bottom:5%;display:none;overflow:hidden;
   color:#ffffff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-weight:800;
@@ -25,72 +26,88 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 </head>
 <body>
 <div id="stage">
-  <img id="graphic" class="media pos-center" alt="">
-  <video id="video" class="media pos-center" playsinline preload="metadata"></video>
+  <div id="graphics"></div>
+  <video id="video" playsinline preload="metadata"></video>
   <div id="text" class="static"><span id="textInner"></span></div>
   <div id="status"></div>
 </div>
 <script>
 (() => {
   const q=new URLSearchParams(location.search), room=q.get('room')||'default', debug=q.get('debug')==='1';
-  const graphic=document.querySelector('#graphic'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), status=document.querySelector('#status');
-  let ws,retry=1000,imageTimer=null,currentVideoSrc=''; if(debug)status.style.display='block';
+  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), status=document.querySelector('#status');
+  let ws,retry=1000,currentVideoSrc=''; const timers=new Map(); if(debug)status.style.display='block';
   const setStatus=s=>{if(debug)status.textContent=s};
   const allowedPositions=new Set(['center','top','bottom','left','right','top-left','top-right','bottom-left','bottom-right']);
-  function position(el,pos){
+
+  function place(el,pos,size){
     const safe=allowedPositions.has(pos)?pos:'center';
-    // Inline positioning avoids browser-source CSS class caching/inheritance issues.
-    Object.assign(el.style,{top:'auto',right:'auto',bottom:'auto',left:'auto',width:'auto',height:'auto',maxWidth:'none',maxHeight:'none',transform:'none'});
-    if(safe==='center'){Object.assign(el.style,{inset:'0',width:'100%',height:'100%',maxWidth:'100%',maxHeight:'100%'});return}
-    el.style.inset='auto';
-    const horizontalCenter=safe==='top'||safe==='bottom';
-    const verticalCenter=safe==='left'||safe==='right';
-    const corner=safe.includes('-');
-    if(horizontalCenter){
-      el.style.left='50%';el.style.transform='translateX(-50%)';el.style.maxWidth='60%';el.style.maxHeight='32%';
-      if(safe==='top')el.style.top='4%';else el.style.bottom='4%';
-    } else if(verticalCenter){
-      el.style.top='50%';el.style.transform='translateY(-50%)';el.style.maxWidth='36%';el.style.maxHeight='60%';
-      if(safe==='left')el.style.left='4%';else el.style.right='4%';
-    } else if(corner){
-      el.style.maxWidth='36%';el.style.maxHeight='36%';
+    const pct=Math.max(10,Math.min(100,Number(size||40)));
+    Object.assign(el.style,{inset:'auto',top:'auto',right:'auto',bottom:'auto',left:'auto',width:`${pct}%`,height:'auto',maxWidth:`${pct}%`,maxHeight:'90%',transform:'none'});
+    if(safe==='center'){
+      el.style.left='50%';el.style.top='50%';el.style.transform='translate(-50%,-50%)';
+    } else if(safe==='top'){
+      el.style.left='50%';el.style.top='4%';el.style.transform='translateX(-50%)';
+    } else if(safe==='bottom'){
+      el.style.left='50%';el.style.bottom='4%';el.style.transform='translateX(-50%)';
+    } else if(safe==='left'){
+      el.style.left='4%';el.style.top='50%';el.style.transform='translateY(-50%)';
+    } else if(safe==='right'){
+      el.style.right='4%';el.style.top='50%';el.style.transform='translateY(-50%)';
+    } else {
       if(safe.startsWith('top'))el.style.top='4%';else el.style.bottom='4%';
       if(safe.endsWith('left'))el.style.left='4%';else el.style.right='4%';
     }
   }
-  function applyText(t){
-    if(!t?.value){textInner.textContent='';text.style.display='none';return}
-    textInner.textContent=t.value;
-    text.style.display='block';
-    text.style.top=t.position==='top'?'5%':'';
-    text.style.bottom=t.position==='top'?'':'5%';
-    text.style.color=t.color||'#ffffff';
-    text.style.fontSize=`${Math.max(18,Math.min(120,Number(t.size||48)))}px`;
-    const scrolling=Boolean(t.scroll);
-    text.className=scrolling?'scroll':'static';
-    // Restart the ticker every time text/settings are updated.
-    textInner.style.animation='none';
-    void textInner.offsetWidth;
-    if(scrolling){
-      const seconds=Math.max(5,Math.min(40,Number(t.scrollSeconds||12)));
-      textInner.style.animation=`ticker ${seconds}s linear infinite`;
-    } else {
-      textInner.style.transform='none';
+
+  function renderGraphics(state){
+    const items=Array.isArray(state.graphics)
+      ? state.graphics
+      : (state.graphic?.src ? [{...state.graphic,id:state.graphic.id||state.graphic.src,size:40}] : []);
+    const wanted=new Set(items.map(g=>String(g.id||g.src)));
+    for(const child of [...graphics.children]){
+      if(!wanted.has(child.dataset.id)){clearTimeout(timers.get(child.dataset.id));timers.delete(child.dataset.id);child.remove()}
+    }
+    for(const g of items){
+      if(!g?.src)continue;
+      const id=String(g.id||g.src);
+      let img=[...graphics.children].find(x=>x.dataset.id===id);
+      if(!img){
+        img=document.createElement('img');img.className='graphic';img.dataset.id=id;img.alt='';graphics.appendChild(img)
+      }
+      if(img.getAttribute('src')!==g.src)img.src=g.src;
+      img.style.objectFit=g.fit||'contain';place(img,g.position,g.size);
+      clearTimeout(timers.get(id));
+      if(Number(g.duration)>0){
+        timers.set(id,setTimeout(()=>{img.remove();timers.delete(id)},Number(g.duration)));
+      }
     }
   }
+
+  function positionVideo(el,pos){
+    Object.assign(el.style,{inset:'auto',top:'0',left:'0',width:'100%',height:'100%',maxWidth:'100%',maxHeight:'100%',transform:'none'});
+  }
+
+  function applyText(t){
+    if(!t?.value){textInner.textContent='';text.style.display='none';return}
+    textInner.textContent=t.value;text.style.display='block';
+    text.style.top=t.position==='top'?'5%':'';text.style.bottom=t.position==='top'?'':'5%';
+    text.style.color=t.color||'#ffffff';text.style.fontSize=`${Math.max(18,Math.min(120,Number(t.size||48)))}px`;
+    const scrolling=Boolean(t.scroll);text.className=scrolling?'scroll':'static';
+    textInner.style.animation='none';void textInner.offsetWidth;
+    if(scrolling){const seconds=Math.max(5,Math.min(40,Number(t.scrollSeconds||12)));textInner.style.animation=`ticker ${seconds}s linear infinite`}
+    else{textInner.style.transform='none'}
+  }
+
   function applyState(state){
-    clearTimeout(imageTimer);
-    if(state.graphic?.src){
-      graphic.src=state.graphic.src;graphic.style.objectFit=state.graphic.fit||'contain';position(graphic,state.graphic.position);graphic.style.display='block';
-      if(state.graphic.duration>0)imageTimer=setTimeout(()=>graphic.style.display='none',state.graphic.duration)
-    } else {graphic.removeAttribute('src');graphic.style.display='none'}
+    renderGraphics(state);
     if(state.video?.src){
       const desired=new URL(state.video.src,location.href).href;
-      video.style.objectFit=state.video.fit||'contain';position(video,state.video.position);video.volume=Math.max(0,Math.min(1,Number(state.video.volume??1)));video.style.display='block';
+      video.style.objectFit=state.video.fit||'contain';positionVideo(video,state.video.position);video.volume=Math.max(0,Math.min(1,Number(state.video.volume??1)));video.style.display='block';
       if(video.src!==desired){currentVideoSrc=state.video.src;video.src=state.video.src;video.play().catch(()=>{})}
     } else {currentVideoSrc='';video.pause();video.removeAttribute('src');video.load();video.style.display='none'}
     applyText(state.text);
   }
+
   video.addEventListener('ended',()=>{video.style.display='none';if(ws?.readyState===1)ws.send(JSON.stringify({type:'event',event:'videoEnded',src:currentVideoSrc}))});
   function connect(){
     const proto=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}?role=overlay`);

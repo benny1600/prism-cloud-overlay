@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ graphic: null, video: null, text: null, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ graphics: [], video: null, text: null, updatedAt: null });
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml",
@@ -105,20 +105,44 @@ export class OverlayRoom extends DurableObject {
     let next = { ...current };
 
     switch (command.action) {
-      case "showImage":
+      case "showImage": {
         next.text = null;
         next.video = null;
-        next.graphic = {
+        const image = {
+          id: String(command.id || crypto.randomUUID()),
           src: String(command.src || ""),
           duration: Math.max(0, Number(command.duration || 0)),
           fit: command.fit || "contain",
-          position: command.position || "center"
+          position: command.position || "center",
+          size: Math.max(10, Math.min(100, Number(command.size || 40)))
         };
+        const currentGraphics = Array.isArray(current.graphics)
+          ? current.graphics
+          : (current.graphic ? [{ ...current.graphic, id: current.graphic.id || crypto.randomUUID(), size: 40 }] : []);
+        // "Stay On" (duration 0) layers with other stay-on graphics.
+        // Timed graphics replace the image layer to keep temporary popups predictable.
+        next.graphics = image.duration === 0
+          ? [...currentGraphics.filter(g => g?.src !== image.src), image].slice(-12)
+          : [image];
+        delete next.graphic;
         break;
-      case "hideImage": next.graphic = null; break;
+      }
+      case "hideImage": {
+        const currentGraphics = Array.isArray(current.graphics)
+          ? current.graphics
+          : (current.graphic ? [{ ...current.graphic, id: current.graphic.id || "legacy" }] : []);
+        const targetSrc = String(command.src || "");
+        const targetId = String(command.id || "");
+        next.graphics = (targetSrc || targetId)
+          ? currentGraphics.filter(g => !(targetSrc && g?.src === targetSrc) && !(targetId && g?.id === targetId))
+          : [];
+        delete next.graphic;
+        break;
+      }
       case "playVideo":
         next.text = null;
-        next.graphic = null;
+        next.graphics = [];
+        delete next.graphic;
         next.video = {
           src: String(command.src || ""),
           fit: command.fit || "contain",
@@ -128,7 +152,8 @@ export class OverlayRoom extends DurableObject {
         break;
       case "stopVideo": next.video = null; break;
       case "showText":
-        next.graphic = null;
+        next.graphics = [];
+        delete next.graphic;
         next.video = null;
         next.text = {
           value: String(command.value || "").slice(0, 300),
