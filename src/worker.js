@@ -126,7 +126,11 @@ export class OverlayRoom extends DurableObject {
       case "showText":
         next.text = {
           value: String(command.value || "").slice(0, 300),
-          position: command.position || "bottom"
+          position: command.position === "top" ? "top" : "bottom",
+          color: /^#[0-9a-fA-F]{6}$/.test(String(command.color || "")) ? command.color : "#ffffff",
+          size: Math.max(18, Math.min(120, Number(command.size || 48))),
+          scroll: Boolean(command.scroll),
+          scrollSeconds: Math.max(5, Math.min(40, Number(command.scrollSeconds || 12)))
         };
         break;
       case "hideText": next.text = null; break;

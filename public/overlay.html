@@ -6,40 +6,73 @@
 <title>Mobile Stream Overlay</title>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
-*{box-sizing:border-box}#stage{position:fixed;inset:0;pointer-events:none}
-.media{position:absolute;display:none;max-width:100%;max-height:100%}
-#graphic,#video{width:100%;height:100%;object-fit:contain;inset:0}
-.pos-top-left{inset:4% auto auto 4%!important;width:36%!important;height:36%!important}
-.pos-top-right{inset:4% 4% auto auto!important;width:36%!important;height:36%!important}
-.pos-bottom-left{inset:auto auto 4% 4%!important;width:36%!important;height:36%!important}
-.pos-bottom-right{inset:auto 4% 4% auto!important;width:36%!important;height:36%!important}
-#text{position:absolute;left:5%;right:5%;bottom:6%;display:none;text-align:center;color:white;font:800 clamp(24px,4vw,64px)/1.1 system-ui,sans-serif;text-shadow:0 2px 8px rgba(0,0,0,.95)}
+*{box-sizing:border-box}
+#stage{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.media{position:absolute;display:none;max-width:100%;max-height:100%;transform:none}
+#graphic,#video{object-fit:contain}
+.pos-center{top:0;right:0;bottom:0;left:0;width:100%;height:100%}
+.pos-top{top:4%;left:50%;right:auto;bottom:auto;width:60%;height:32%;transform:translateX(-50%)}
+.pos-bottom{top:auto;left:50%;right:auto;bottom:4%;width:60%;height:32%;transform:translateX(-50%)}
+.pos-left{top:50%;left:4%;right:auto;bottom:auto;width:36%;height:60%;transform:translateY(-50%)}
+.pos-right{top:50%;left:auto;right:4%;bottom:auto;width:36%;height:60%;transform:translateY(-50%)}
+.pos-top-left{top:4%;left:4%;right:auto;bottom:auto;width:36%;height:36%}
+.pos-top-right{top:4%;left:auto;right:4%;bottom:auto;width:36%;height:36%}
+.pos-bottom-left{top:auto;left:4%;right:auto;bottom:4%;width:36%;height:36%}
+.pos-bottom-right{top:auto;left:auto;right:4%;bottom:4%;width:36%;height:36%}
+#text{
+  position:absolute;left:3%;right:3%;bottom:5%;display:none;overflow:hidden;
+  color:#ffffff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-weight:800;
+  line-height:1.15;text-shadow:0 2px 8px rgba(0,0,0,.95);white-space:nowrap
+}
+#text.static{text-align:center}
+#text.static #textInner{display:inline-block;white-space:normal}
+#text.scroll #textInner{display:inline-block;white-space:nowrap;padding-left:100%;animation-name:ticker;animation-timing-function:linear;animation-iteration-count:infinite}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-100%)}}
 #status{display:none;position:absolute;top:8px;left:8px;padding:5px 8px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:12px system-ui,sans-serif}
 </style>
 </head>
 <body>
 <div id="stage">
-  <img id="graphic" class="media" alt="">
-  <video id="video" class="media" playsinline preload="metadata"></video>
-  <div id="text"></div><div id="status"></div>
+  <img id="graphic" class="media pos-center" alt="">
+  <video id="video" class="media pos-center" playsinline preload="metadata"></video>
+  <div id="text" class="static"><span id="textInner"></span></div>
+  <div id="status"></div>
 </div>
 <script>
 (() => {
   const q=new URLSearchParams(location.search), room=q.get('room')||'default', debug=q.get('debug')==='1';
-  const graphic=document.querySelector('#graphic'), video=document.querySelector('#video'), text=document.querySelector('#text'), status=document.querySelector('#status');
+  const graphic=document.querySelector('#graphic'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), status=document.querySelector('#status');
   let ws,retry=1000,imageTimer=null,currentVideoSrc=''; if(debug)status.style.display='block';
   const setStatus=s=>{if(debug)status.textContent=s};
-  function position(el,pos){el.className='media'; if(pos&&pos!=='center')el.classList.add('pos-'+pos)}
+  const allowedPositions=new Set(['center','top','bottom','left','right','top-left','top-right','bottom-left','bottom-right']);
+  function position(el,pos){
+    const safe=allowedPositions.has(pos)?pos:'center';
+    el.className=`media pos-${safe}`;
+  }
+  function applyText(t){
+    if(!t?.value){textInner.textContent='';text.style.display='none';return}
+    textInner.textContent=t.value;
+    text.style.display='block';
+    text.style.top=t.position==='top'?'5%':'';
+    text.style.bottom=t.position==='top'?'':'5%';
+    text.style.color=t.color||'#ffffff';
+    text.style.fontSize=`${Math.max(18,Math.min(120,Number(t.size||48)))}px`;
+    const scrolling=Boolean(t.scroll);
+    text.className=scrolling?'scroll':'static';
+    textInner.style.animationDuration=scrolling?`${Math.max(5,Math.min(40,Number(t.scrollSeconds||12)))}s`:'';
+  }
   function applyState(state){
     clearTimeout(imageTimer);
-    if(state.graphic?.src){graphic.src=state.graphic.src;graphic.style.objectFit=state.graphic.fit||'contain';position(graphic,state.graphic.position);graphic.style.display='block';if(state.graphic.duration>0)imageTimer=setTimeout(()=>graphic.style.display='none',state.graphic.duration)}
-    else{graphic.removeAttribute('src');graphic.style.display='none'}
+    if(state.graphic?.src){
+      graphic.src=state.graphic.src;graphic.style.objectFit=state.graphic.fit||'contain';position(graphic,state.graphic.position);graphic.style.display='block';
+      if(state.graphic.duration>0)imageTimer=setTimeout(()=>graphic.style.display='none',state.graphic.duration)
+    } else {graphic.removeAttribute('src');graphic.style.display='none'}
     if(state.video?.src){
       const desired=new URL(state.video.src,location.href).href;
       video.style.objectFit=state.video.fit||'contain';position(video,state.video.position);video.volume=Math.max(0,Math.min(1,Number(state.video.volume??1)));video.style.display='block';
       if(video.src!==desired){currentVideoSrc=state.video.src;video.src=state.video.src;video.play().catch(()=>{})}
     } else {currentVideoSrc='';video.pause();video.removeAttribute('src');video.load();video.style.display='none'}
-    if(state.text?.value){text.textContent=state.text.value;text.style.display='block';text.style.top=state.text.position==='top'?'6%':'';text.style.bottom=state.text.position==='top'?'':'6%'}else{text.textContent='';text.style.display='none'}
+    applyText(state.text);
   }
   video.addEventListener('ended',()=>{video.style.display='none';if(ws?.readyState===1)ws.send(JSON.stringify({type:'event',event:'videoEnded',src:currentVideoSrc}))});
   function connect(){
