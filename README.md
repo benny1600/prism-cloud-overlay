@@ -150,3 +150,9 @@ Possible later upgrades include folders/categories, drag-and-drop button orderin
 - Kept timed image cleanup.
 - Kept text scrolling, color, size, position, speed, and font choices.
 - Simpler overlay code for better Prism/mobile reliability.
+
+
+## v0.9 fix
+- Text is now independent from the image layer.
+- Showing or updating text no longer clears stay-on or timed images.
+- Hiding text affects only the text layer.

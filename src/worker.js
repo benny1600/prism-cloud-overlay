@@ -173,8 +173,8 @@ export class OverlayRoom extends DurableObject {
         break;
       case "stopVideo": next.video = null; break;
       case "showText":
-        next.graphics = [];
-        delete next.graphic;
+        // Text is independent from the image layer. Keep all active graphics.
+        // Video behavior remains unchanged for now.
         next.video = null;
         next.text = {
           value: String(command.value || "").slice(0, 300),
