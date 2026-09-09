@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ graphics: [], video: null, text: null, rideWait: null, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ graphics: [], video: null, text: null, rideWait: null, weather: null, updatedAt: null });
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml",
@@ -132,7 +132,7 @@ export class OverlayRoom extends DurableObject {
           duration: Math.max(0, Number(command.duration || 0)),
           fit: command.fit || "contain",
           position: command.position || "center",
-          size: Math.max(5, Math.min(100, Number(command.size || 40)))
+          size: Math.max(10, Math.min(100, Number(command.size || 40)))
         };
         const currentGraphics = Array.isArray(current.graphics)
           ? current.graphics.filter(g => g && g.src)
@@ -191,11 +191,20 @@ export class OverlayRoom extends DurableObject {
         next.rideWait = {
           park: [5,6,7,8].includes(Number(command.park)) ? Number(command.park) : 6,
           position: ["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position || "")) ? String(command.position) : "bottom",
-          size: Math.max(20, Math.min(75, Number(command.size || 40))),
+          size: Math.max(2, Math.min(75, Number(command.size || 20))),
           cycle: Math.max(3, Math.min(60, Number(command.cycle || 10)))
         };
         break;
       case "hideRideWait": next.rideWait = null; break;
+      case "showWeather":
+        next.weather = {
+          park: ["mk","epcot","hs","ak","springs"].includes(String(command.park || "").toLowerCase()) ? String(command.park).toLowerCase() : "mk",
+          position: ["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position || "")) ? String(command.position) : "top-right",
+          size: Math.max(10, Math.min(100, Number(command.size || 40))),
+          unit: String(command.unit || "f").toLowerCase() === "c" ? "c" : "f"
+        };
+        break;
+      case "hideWeather": next.weather = null; break;
       case "clear": next = { ...DEFAULT_STATE }; break;
       default: return json({ ok: false, error: "Unknown action" }, { status: 400 });
     }
@@ -322,6 +331,45 @@ async function serveRideWaitData(url) {
   }
 }
 
+
+const WEATHER_PARKS = {
+  mk: { label: "Magic Kingdom", latitude: 28.417663, longitude: -81.581212 },
+  epcot: { label: "EPCOT", latitude: 28.374694, longitude: -81.549404 },
+  hs: { label: "Disney's Hollywood Studios", latitude: 28.357529, longitude: -81.558271 },
+  ak: { label: "Disney's Animal Kingdom", latitude: 28.359566, longitude: -81.591172 },
+  springs: { label: "Disney Springs", latitude: 28.371496, longitude: -81.519005 }
+};
+
+async function serveWeatherData(url) {
+  const parkKey = String(url.searchParams.get("park") || "mk").toLowerCase();
+  const unit = String(url.searchParams.get("unit") || "f").toLowerCase() === "c" ? "c" : "f";
+  const park = WEATHER_PARKS[parkKey] || WEATHER_PARKS.mk;
+
+  const params = new URLSearchParams({
+    latitude: String(park.latitude),
+    longitude: String(park.longitude),
+    current: ["temperature_2m","apparent_temperature","precipitation","weather_code"].join(","),
+    daily: "precipitation_probability_max",
+    temperature_unit: unit === "c" ? "celsius" : "fahrenheit",
+    precipitation_unit: "inch",
+    timezone: "auto",
+    forecast_days: "1"
+  });
+
+  try {
+    const upstream = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`, {
+      headers: { "accept": "application/json" }
+    });
+    if (!upstream.ok) throw new Error(`Open-Meteo HTTP ${upstream.status}`);
+    const data = await upstream.json();
+    return json({ ...data, overlay_location_name: park.label }, {
+      headers: { "cache-control": "public, max-age=60" }
+    });
+  } catch (error) {
+    return json({ ok: false, error: "Unable to load weather data" }, { status: 502 });
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -348,6 +396,10 @@ export default {
 
     if (url.pathname === "/ride-waits-data" && request.method === "GET") {
       return serveRideWaitData(url);
+    }
+
+    if (url.pathname === "/weather-data" && request.method === "GET") {
+      return serveWeatherData(url);
     }
 
     if (url.pathname.startsWith("/api/media/")) {

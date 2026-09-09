@@ -171,3 +171,14 @@ Added a new **Ride Waits** tab to the mobile controller.
 - Existing omitted rides and shortened attraction names are preserved.
 - `HIDE RIDE WAITS` hides only the ride-wait layer.
 - `CLEAR SCREEN` still clears all overlay layers.
+
+
+## v0.11 — Parks + Weather
+
+- Renamed Ride Waits tab to Parks.
+- Added weather for Magic Kingdom, EPCOT, Hollywood Studios, Animal Kingdom, and Disney Springs.
+- Weather uses Open-Meteo and refreshes every 10 minutes.
+- Weather includes temperature, feels-like temperature, conditions, rain chance, rain bar, precipitation, updated time, park name, and channel footer.
+- Weather has position, size, and Fahrenheit/Celsius controls.
+- Ride Waits minimum size is now 2%, with presets 2%, 3%, 5%, 7%, 10%, 15%, 20% and larger.
+- Weather and Ride Waits are independent layers and can coexist with images/text.

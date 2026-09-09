@@ -15,7 +15,7 @@
 <main>
 <div class="top">
   <div class="row"><div class="grow"><strong>Mobile Overlay</strong><div id="conn" class="status">Disconnected</div></div><button id="logout" class="tab">Lock</button></div>
-  <div class="tabs" style="overflow-x:auto"><button class="tab active" data-tab="library">Library</button><button class="tab" data-tab="upload">Upload</button><button class="tab" data-tab="text">Text</button><button class="tab" data-tab="rides">Ride Waits</button></div>
+  <div class="tabs" style="overflow-x:auto"><button class="tab active" data-tab="library">Library</button><button class="tab" data-tab="upload">Upload</button><button class="tab" data-tab="text">Text</button><button class="tab" data-tab="rides">Parks</button></div>
 </div>
 
 <section id="library" class="panel active">
@@ -33,10 +33,13 @@
 
 <section id="rides" class="panel">
   <div class="card">
-    <h2 style="margin-top:0">Disney Ride Waits</h2>
-    <p class="status">Choose a park. The wait-time card is an independent overlay layer and can stay on screen with your images and text.</p>
+    <h2 style="margin-top:0">Parks</h2>
+    <p class="status">Ride waits and weather are independent overlay layers. You can show both at the same time.</p>
     <div id="parkGrid" class="library" style="margin-top:12px"></div>
-    <button id="hideRideWait" class="bigbtn secondary" style="width:100%;margin-top:12px">HIDE RIDE WAITS</button>
+    <div class="settings" style="margin-top:12px">
+      <button id="hideRideWait" class="bigbtn secondary">HIDE RIDE WAITS</button>
+      <button id="hideWeather" class="bigbtn secondary">HIDE WEATHER</button>
+    </div>
   </div>
 </section>
 
@@ -125,73 +128,122 @@
   }
 
   const parks=[
-    {id:6,key:'mk',name:'Magic Kingdom'},
-    {id:5,key:'epcot',name:'EPCOT'},
-    {id:7,key:'hs',name:'Hollywood Studios'},
-    {id:8,key:'ak',name:'Animal Kingdom'}
+    {id:6,key:'mk',name:'Magic Kingdom',waits:true},
+    {id:5,key:'epcot',name:'EPCOT',waits:true},
+    {id:7,key:'hs',name:'Hollywood Studios',waits:true},
+    {id:8,key:'ak',name:'Animal Kingdom',waits:true},
+    {id:null,key:'springs',name:'Disney Springs',waits:false}
   ];
+
+  function positionOptions(defaultValue){
+    const opts=[
+      ['bottom','Bottom center'],['top','Top center'],['center','Center'],
+      ['left','Left center'],['right','Right center'],
+      ['top-left','Top left'],['top-right','Top right'],
+      ['bottom-left','Bottom left'],['bottom-right','Bottom right']
+    ];
+    return opts.map(([v,l])=>`<option value="${v}" ${v===defaultValue?'selected':''}>${l}</option>`).join('');
+  }
 
   function renderParkCards(){
     const parkGrid=$('#parkGrid');
     if(!parkGrid)return;
     parkGrid.innerHTML='';
+
     for(const park of parks){
       const card=document.createElement('div');
       card.className='media-card';
+
+      const waitSection = park.waits ? `
+        <div class="meta" style="margin-top:8px"><strong>Ride Waits</strong></div>
+        <div class="settings">
+          <select class="field ride-pos">${positionOptions('bottom')}</select>
+          <select class="field ride-size">
+            <option value="2">2% size</option>
+            <option value="3">3% size</option>
+            <option value="5">5% size</option>
+            <option value="7">7% size</option>
+            <option value="10">10% size</option>
+            <option value="15">15% size</option>
+            <option value="20" selected>20% size</option>
+            <option value="30">30% size</option>
+            <option value="40">40% size</option>
+            <option value="50">50% size</option>
+            <option value="60">60% size</option>
+            <option value="75">75% size</option>
+          </select>
+        </div>
+        <div class="settings">
+          <select class="field ride-cycle">
+            <option value="5">5 sec per ride</option>
+            <option value="10" selected>10 sec per ride</option>
+            <option value="15">15 sec per ride</option>
+            <option value="20">20 sec per ride</option>
+            <option value="30">30 sec per ride</option>
+          </select>
+          <button class="bigbtn play ride-show">SHOW WAITS</button>
+        </div>` : '';
+
       card.innerHTML=`
         <div class="info">
           <div class="name">${park.name}</div>
-          <div class="meta">Live Queue-Times rotation</div>
+          ${waitSection}
+          <div class="meta" style="margin-top:10px"><strong>Weather</strong></div>
           <div class="settings">
-            <select class="field ride-pos">
-              <option value="bottom" selected>Bottom center</option>
-              <option value="top">Top center</option>
-              <option value="center">Center</option>
-              <option value="left">Left center</option>
-              <option value="right">Right center</option>
-              <option value="top-left">Top left</option>
-              <option value="top-right">Top right</option>
-              <option value="bottom-left">Bottom left</option>
-              <option value="bottom-right">Bottom right</option>
-            </select>
-            <select class="field ride-size">
-              <option value="5">5% size</option>
+            <select class="field weather-pos">${positionOptions('top-right')}</select>
+            <select class="field weather-size">
               <option value="10">10% size</option>
+              <option value="15">15% size</option>
               <option value="20">20% size</option>
+              <option value="25">25% size</option>
               <option value="30">30% size</option>
               <option value="40" selected>40% size</option>
               <option value="50">50% size</option>
               <option value="60">60% size</option>
               <option value="75">75% size</option>
+              <option value="100">100% size</option>
             </select>
           </div>
           <div class="settings">
-            <select class="field ride-cycle">
-              <option value="5">5 sec per ride</option>
-              <option value="10" selected>10 sec per ride</option>
-              <option value="15">15 sec per ride</option>
-              <option value="20">20 sec per ride</option>
-              <option value="30">30 sec per ride</option>
+            <select class="field weather-unit">
+              <option value="f" selected>Fahrenheit</option>
+              <option value="c">Celsius</option>
             </select>
-            <span></span>
+            <button class="bigbtn play weather-show">SHOW WEATHER</button>
           </div>
-          <button class="bigbtn play ride-show" style="width:100%">SHOW ${park.name.toUpperCase()}</button>
         </div>`;
-      const pos=card.querySelector('.ride-pos');
-      const size=card.querySelector('.ride-size');
-      const cycle=card.querySelector('.ride-cycle');
-      card.querySelector('.ride-show').onclick=()=>cmd({
-        action:'showRideWait',
-        park:park.id,
-        position:pos.value,
-        size:Number(size.value),
-        cycle:Number(cycle.value)
+
+      if(park.waits){
+        const pos=card.querySelector('.ride-pos');
+        const size=card.querySelector('.ride-size');
+        const cycle=card.querySelector('.ride-cycle');
+        card.querySelector('.ride-show').onclick=()=>cmd({
+          action:'showRideWait',
+          park:park.id,
+          position:pos.value,
+          size:Number(size.value),
+          cycle:Number(cycle.value)
+        });
+      }
+
+      const wpos=card.querySelector('.weather-pos');
+      const wsize=card.querySelector('.weather-size');
+      const wunit=card.querySelector('.weather-unit');
+      card.querySelector('.weather-show').onclick=()=>cmd({
+        action:'showWeather',
+        park:park.key,
+        position:wpos.value,
+        size:Number(wsize.value),
+        unit:wunit.value
       });
+
       parkGrid.appendChild(card);
     }
   }
+
   renderParkCards();
   $('#hideRideWait').onclick=()=>cmd({action:'hideRideWait'});
+  $('#hideWeather').onclick=()=>cmd({action:'hideWeather'});
 
   $('#refresh').onclick=loadLibrary;
   $('#uploadBtn').onclick=async()=>{const f=$('#fileInput').files[0];if(!f){note('Choose a file first');return}if(f.size>75*1024*1024){note('File is over 75 MB');return}$('#uploadStatus').textContent=`Uploading ${f.name}…`;try{await api(`/api/media/upload?name=${encodeURIComponent(f.name)}`,{method:'POST',headers:{'content-type':f.type||'application/octet-stream','X-File-Name':f.name},body:f});$('#uploadStatus').textContent='Upload complete';$('#fileInput').value='';note('Media uploaded');loadLibrary();document.querySelector('[data-tab="library"]').click()}catch(e){$('#uploadStatus').textContent=e.message}};

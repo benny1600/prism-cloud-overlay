@@ -36,6 +36,35 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 @keyframes pulseGreen{0%,100%{transform:scale(1);box-shadow:0 0 6px rgba(0,255,0,.4)}50%{transform:scale(1.03);box-shadow:0 0 16px rgba(0,255,0,.7)}}
 @keyframes pulseYellow{0%,100%{transform:scale(1);box-shadow:0 0 4px rgba(255,230,0,.3)}50%{transform:scale(1.02);box-shadow:0 0 14px rgba(255,230,0,.7)}}
 @keyframes pulseRed{0%,100%{transform:scale(1);box-shadow:0 0 4px rgba(255,0,0,.4)}50%{transform:scale(1.05);box-shadow:0 0 20px rgba(255,0,0,.9)}}
+
+#weather{position:absolute;display:none;pointer-events:none;transform-origin:center center}
+#weather .weather-card{
+  width:420px;height:180px;box-sizing:border-box;padding:12px 16px;border-radius:18px;
+  background:rgba(10,10,20,.75);backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.12);display:grid;grid-template-columns:110px 1fr;
+  column-gap:12px;align-items:center;box-shadow:0 10px 25px rgba(0,0,0,.45);
+  color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+}
+#weather .w-left{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+#weather .w-icon{font-size:42px;line-height:1}
+#weather .w-temp{font-size:30px;font-weight:700}
+#weather .w-feels{font-size:12px;color:#cfd8dc}
+#weather .w-right{display:flex;flex-direction:column;gap:4px}
+#weather .w-location{font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+#weather .w-condition{font-size:13px;color:#cfd8dc}
+#weather .w-rain-row{margin-top:6px;display:flex;flex-direction:column;gap:4px}
+#weather .w-rain-header{display:flex;justify-content:space-between;font-size:13px;align-items:center}
+#weather .w-rain-percent{font-weight:600}
+#weather .w-rain-percent.high{color:#ff5252}
+#weather .w-rain-percent.low{color:#4caf50}
+#weather .w-rain-bar{width:100%;height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+#weather .w-rain-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,rgba(79,195,247,.25),#4fc3f7);transition:width .6s ease-out}
+#weather .w-meta{margin-top:2px;font-size:11px;color:#cfd8dc;opacity:.85;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+#weather .w-footer{margin-top:6px;font-size:13px;display:flex;justify-content:space-between;align-items:center;color:#fff;font-weight:600;padding-top:4px;border-top:1px solid rgba(255,255,255,.15)}
+#weather .w-channel{opacity:.85}
+#weather .w-subscribe{color:#ff5252;animation:weatherPulse 1.4s infinite}
+@keyframes weatherPulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
+
 #status{display:none;position:absolute;top:8px;left:8px;padding:5px 8px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:12px system-ui,sans-serif}
 </style>
 </head>
@@ -51,14 +80,34 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       <div class="credit">Powered by Queue-Times.com</div>
     </div>
   </div>
+  <div id="weather">
+    <div class="weather-card">
+      <div class="w-left">
+        <div id="wIcon" class="w-icon">⛅</div>
+        <div id="wTemp" class="w-temp">--°</div>
+        <div id="wFeels" class="w-feels">feels like --°</div>
+      </div>
+      <div class="w-right">
+        <div class="w-location"><span>📍</span><span id="wLocation">Walt Disney World</span></div>
+        <div id="wCondition" class="w-condition">Loading current weather…</div>
+        <div class="w-rain-row">
+          <div class="w-rain-header"><span>🌧️ Rain chance today</span><span id="wRainPct" class="w-rain-percent">--%</span></div>
+          <div class="w-rain-bar"><div id="wRainFill" class="w-rain-fill"></div></div>
+        </div>
+        <div class="w-meta"><span id="wPrecip">Precip: -- in</span><span id="wUpdated">Updated: --</span></div>
+        <div class="w-footer"><span class="w-channel">Not So Scary Mary TV</span><span class="w-subscribe">🔥 Subscribe!</span></div>
+      </div>
+    </div>
+  </div>
   <div id="status"></div>
 </div>
 <script>
 (() => {
   const q=new URLSearchParams(location.search), room=q.get('room')||'default', debug=q.get('debug')==='1';
-  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), status=document.querySelector('#status');
+  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), status=document.querySelector('#status');
   let ws,retry=1000,currentVideoSrc=''; const timers=new Map(); if(debug)status.style.display='block';
   let rideItems=[],rideIndex=0,rideCycleTimer=null,rideRefreshTimer=null,rideConfigKey='';
+  let weatherRefreshTimer=null,weatherConfigKey='';
   const setStatus=s=>{if(debug)status.textContent=s};
   const allowedPositions=new Set(['center','top','bottom','left','right','top-left','top-right','bottom-left','bottom-right']);
 
@@ -219,6 +268,98 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     rideRefreshTimer=setInterval(()=>refreshRideWait(cfg),300000);
   }
 
+
+  function weatherDescription(code){
+    if(code===0)return{icon:'☀️',text:'Clear sky'};
+    if([1,2].includes(code))return{icon:'🌤️',text:'Mostly sunny'};
+    if(code===3)return{icon:'⛅',text:'Cloudy'};
+    if([45,48].includes(code))return{icon:'🌫️',text:'Foggy'};
+    if([51,53,55].includes(code))return{icon:'🌦️',text:'Drizzle'};
+    if([61,63,65].includes(code))return{icon:'🌧️',text:'Rain'};
+    if([66,67].includes(code))return{icon:'🌧️❄️',text:'Freezing rain'};
+    if([71,73,75,77].includes(code))return{icon:'❄️',text:'Snow'};
+    if([80,81,82].includes(code))return{icon:'🌦️',text:'Showers'};
+    if([95,96,99].includes(code))return{icon:'⛈️',text:'Thunderstorms'};
+    return{icon:'❓',text:'Unknown conditions'};
+  }
+
+  function formatWeatherTime(iso){
+    try{return new Date(iso).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}
+    catch{return'--';}
+  }
+
+  async function refreshWeather(cfg){
+    try{
+      const r=await fetch(`/weather-data?park=${encodeURIComponent(cfg.park)}&unit=${encodeURIComponent(cfg.unit)}`,{cache:'no-store'});
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const data=await r.json();
+      const current=data.current||{},daily=data.daily||{};
+      const temp=Math.round(current.temperature_2m);
+      const feels=Math.round(current.apparent_temperature);
+      const precip=current.precipitation!=null?Number(current.precipitation).toFixed(2):null;
+      const chance=Array.isArray(daily.precipitation_probability_max)?daily.precipitation_probability_max[0]:0;
+      const desc=weatherDescription(current.weather_code||0);
+      const clamped=Math.max(0,Math.min(100,Number(chance||0)));
+
+      wIcon.textContent=desc.icon;
+      wTemp.textContent=`${temp}°`;
+      wFeels.textContent=`feels like ${feels}°`;
+      wLocation.textContent=data.overlay_location_name||'Walt Disney World';
+      wCondition.textContent=desc.text;
+      wRainPct.textContent=`${Math.round(clamped)}%`;
+      wRainPct.classList.remove('high','low');
+      if(clamped>=60)wRainPct.classList.add('high');
+      else if(clamped<=30)wRainPct.classList.add('low');
+      wRainFill.style.width=`${clamped}%`;
+      wPrecip.textContent=`Precip: ${precip!=null?precip+' in':'--'}`;
+      wUpdated.textContent=`Updated: ${current.time?formatWeatherTime(current.time):'--'}`;
+      weather.style.display='block';
+    }catch(e){
+      console.warn('Weather:',e);
+      weather.style.display='none';
+    }
+  }
+
+  function applyWeather(cfg){
+    if(!cfg){
+      weatherConfigKey='';
+      clearInterval(weatherRefreshTimer); weatherRefreshTimer=null;
+      weather.style.display='none';
+      return;
+    }
+
+    const size=Math.max(10,Number(cfg.size||40));
+    const scale=size/100;
+    weather.style.width='420px';
+    weather.style.height='180px';
+    weather.style.left=weather.style.right=weather.style.top=weather.style.bottom='auto';
+
+    const pos=cfg.position||'top-right';
+    const margin=16;
+    if(pos.includes('left')) weather.style.left=`${margin}px`;
+    else if(pos.includes('right')) weather.style.right=`${margin}px`;
+    else weather.style.left='50%';
+
+    if(pos.includes('top')) weather.style.top=`${margin}px`;
+    else if(pos.includes('bottom')) weather.style.bottom=`${margin}px`;
+    else weather.style.top='50%';
+
+    const transforms=[`scale(${scale})`];
+    if(!pos.includes('left')&&!pos.includes('right')) transforms.push('translateX(-50%)');
+    if(!pos.includes('top')&&!pos.includes('bottom')) transforms.push('translateY(-50%)');
+    weather.style.transform=transforms.join(' ');
+
+    const key=`${cfg.park}|${cfg.position}|${cfg.size}|${cfg.unit}`;
+    if(key===weatherConfigKey){
+      weather.style.display='block';
+      return;
+    }
+    weatherConfigKey=key;
+    clearInterval(weatherRefreshTimer);
+    refreshWeather(cfg);
+    weatherRefreshTimer=setInterval(()=>refreshWeather(cfg),600000);
+  }
+
   function applyText(t){
     if(!t?.value){textInner.textContent='';text.style.display='none';return}
     textInner.textContent=t.value;text.style.display='block';
@@ -241,6 +382,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     } else {currentVideoSrc='';video.pause();video.removeAttribute('src');video.load();video.style.display='none'}
     applyText(state.text);
     applyRideWait(state.rideWait);
+    applyWeather(state.weather);
   }
 
   video.addEventListener('ended',()=>{video.style.display='none';if(ws?.readyState===1)ws.send(JSON.stringify({type:'event',event:'videoEnded',src:currentVideoSrc}))});
