@@ -132,7 +132,7 @@ export class OverlayRoom extends DurableObject {
           duration: Math.max(0, Number(command.duration || 0)),
           fit: command.fit || "contain",
           position: command.position || "center",
-          size: Math.max(10, Math.min(100, Number(command.size || 40)))
+          size: Math.max(5, Math.min(100, Number(command.size || 40)))
         };
         const currentGraphics = Array.isArray(current.graphics)
           ? current.graphics.filter(g => g && g.src)
