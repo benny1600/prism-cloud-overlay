@@ -1,8 +1,14 @@
-# Prism Cloud Overlay v0.3
+# v0.4 fixes
+
+- Fixed scrolling text animation and forces animation restart on each update.
+- Showing text now clears image/video; showing an image/video clears text and the other media type.
+- Reworked image/video placement with explicit inline coordinates, including bottom-center sizing.
+
+# Prism Cloud Overlay v0.4
 
 An isolated mobile/Prism overlay system. It does not modify or depend on OBS.
 
-## v0.3 adds
+## v0.4 adds
 
 - Private Cloudflare R2 media library
 - Upload images/video from the mobile control panel
@@ -31,7 +37,7 @@ Your existing Worker secret `CONTROL_KEY` stays the same.
 
 ## Deploy using your existing GitHub repo
 
-Replace the repository contents with the contents of this v0.3 folder (do not upload the outer folder itself). Commit to the same branch Cloudflare is already watching.
+Replace the repository contents with the contents of this v0.4 folder (do not upload the outer folder itself). Commit to the same branch Cloudflare is already watching.
 
 Cloudflare should automatically redeploy with:
 
@@ -49,10 +55,10 @@ Controller:
 
 The controller asks for your CONTROL_KEY and keeps it in `sessionStorage`, so closing the tab locks the controller again.
 
-## First v0.3 test
+## First v0.4 test
 
 1. Create the R2 bucket.
-2. Push v0.3 to GitHub and let Cloudflare deploy.
+2. Push v0.4 to GitHub and let Cloudflare deploy.
 3. Open the controller and enter your existing CONTROL_KEY.
 4. Upload one small PNG/WebP.
 5. Tap SHOW and verify it appears in the already-working Prism overlay.
@@ -64,7 +70,7 @@ The controller asks for your CONTROL_KEY and keeps it in `sessionStorage`, so cl
 - Images: WebP or optimized PNG.
 - Video: H.264 MP4 is the safest compatibility choice for mobile; WebM can also work depending on the embedded browser.
 - Keep clips short and reasonably compressed.
-- v0.3 intentionally caps panel uploads at 75 MB per file.
+- v0.4 intentionally caps panel uploads at 75 MB per file.
 - Only one overlay video is designed to play at a time.
 
 ## Security model
@@ -80,7 +86,7 @@ The controller asks for your CONTROL_KEY and keeps it in `sessionStorage`, so cl
 Possible later upgrades include folders/categories, drag-and-drop button ordering, saved named presets, soft-delete/trash, thumbnails generated in the cloud, multiple overlay layers, and Streamer.bot API integration.
 
 
-## v0.3 changes
+## v0.4 changes
 - Fixed mobile image positioning with explicit top/bottom/left/right placement.
 - Added top-center, bottom-center, left-center and right-center media positions.
 - Added scrolling ticker text.

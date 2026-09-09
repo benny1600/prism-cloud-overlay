@@ -8,17 +8,8 @@
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
 *{box-sizing:border-box}
 #stage{position:fixed;inset:0;pointer-events:none;overflow:hidden}
-.media{position:absolute;display:none;max-width:100%;max-height:100%;transform:none}
+.media{position:absolute;display:none;box-sizing:border-box}
 #graphic,#video{object-fit:contain}
-.pos-center{top:0;right:0;bottom:0;left:0;width:100%;height:100%}
-.pos-top{top:4%;left:50%;right:auto;bottom:auto;width:60%;height:32%;transform:translateX(-50%)}
-.pos-bottom{top:auto;left:50%;right:auto;bottom:4%;width:60%;height:32%;transform:translateX(-50%)}
-.pos-left{top:50%;left:4%;right:auto;bottom:auto;width:36%;height:60%;transform:translateY(-50%)}
-.pos-right{top:50%;left:auto;right:4%;bottom:auto;width:36%;height:60%;transform:translateY(-50%)}
-.pos-top-left{top:4%;left:4%;right:auto;bottom:auto;width:36%;height:36%}
-.pos-top-right{top:4%;left:auto;right:4%;bottom:auto;width:36%;height:36%}
-.pos-bottom-left{top:auto;left:4%;right:auto;bottom:4%;width:36%;height:36%}
-.pos-bottom-right{top:auto;left:auto;right:4%;bottom:4%;width:36%;height:36%}
 #text{
   position:absolute;left:3%;right:3%;bottom:5%;display:none;overflow:hidden;
   color:#ffffff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-weight:800;
@@ -26,8 +17,9 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 }
 #text.static{text-align:center}
 #text.static #textInner{display:inline-block;white-space:normal}
-#text.scroll #textInner{display:inline-block;white-space:nowrap;padding-left:100%;animation-name:ticker;animation-timing-function:linear;animation-iteration-count:infinite}
-@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+#text.scroll{text-align:left;overflow:hidden}
+#text.scroll #textInner{display:inline-block;white-space:nowrap;will-change:transform}
+@keyframes ticker{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
 #status{display:none;position:absolute;top:8px;left:8px;padding:5px 8px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:12px system-ui,sans-serif}
 </style>
 </head>
@@ -47,7 +39,24 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
   const allowedPositions=new Set(['center','top','bottom','left','right','top-left','top-right','bottom-left','bottom-right']);
   function position(el,pos){
     const safe=allowedPositions.has(pos)?pos:'center';
-    el.className=`media pos-${safe}`;
+    // Inline positioning avoids browser-source CSS class caching/inheritance issues.
+    Object.assign(el.style,{top:'auto',right:'auto',bottom:'auto',left:'auto',width:'auto',height:'auto',maxWidth:'none',maxHeight:'none',transform:'none'});
+    if(safe==='center'){Object.assign(el.style,{inset:'0',width:'100%',height:'100%',maxWidth:'100%',maxHeight:'100%'});return}
+    el.style.inset='auto';
+    const horizontalCenter=safe==='top'||safe==='bottom';
+    const verticalCenter=safe==='left'||safe==='right';
+    const corner=safe.includes('-');
+    if(horizontalCenter){
+      el.style.left='50%';el.style.transform='translateX(-50%)';el.style.maxWidth='60%';el.style.maxHeight='32%';
+      if(safe==='top')el.style.top='4%';else el.style.bottom='4%';
+    } else if(verticalCenter){
+      el.style.top='50%';el.style.transform='translateY(-50%)';el.style.maxWidth='36%';el.style.maxHeight='60%';
+      if(safe==='left')el.style.left='4%';else el.style.right='4%';
+    } else if(corner){
+      el.style.maxWidth='36%';el.style.maxHeight='36%';
+      if(safe.startsWith('top'))el.style.top='4%';else el.style.bottom='4%';
+      if(safe.endsWith('left'))el.style.left='4%';else el.style.right='4%';
+    }
   }
   function applyText(t){
     if(!t?.value){textInner.textContent='';text.style.display='none';return}
@@ -59,7 +68,15 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     text.style.fontSize=`${Math.max(18,Math.min(120,Number(t.size||48)))}px`;
     const scrolling=Boolean(t.scroll);
     text.className=scrolling?'scroll':'static';
-    textInner.style.animationDuration=scrolling?`${Math.max(5,Math.min(40,Number(t.scrollSeconds||12)))}s`:'';
+    // Restart the ticker every time text/settings are updated.
+    textInner.style.animation='none';
+    void textInner.offsetWidth;
+    if(scrolling){
+      const seconds=Math.max(5,Math.min(40,Number(t.scrollSeconds||12)));
+      textInner.style.animation=`ticker ${seconds}s linear infinite`;
+    } else {
+      textInner.style.transform='none';
+    }
   }
   function applyState(state){
     clearTimeout(imageTimer);

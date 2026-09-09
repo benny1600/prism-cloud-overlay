@@ -106,6 +106,8 @@ export class OverlayRoom extends DurableObject {
 
     switch (command.action) {
       case "showImage":
+        next.text = null;
+        next.video = null;
         next.graphic = {
           src: String(command.src || ""),
           duration: Math.max(0, Number(command.duration || 0)),
@@ -115,6 +117,8 @@ export class OverlayRoom extends DurableObject {
         break;
       case "hideImage": next.graphic = null; break;
       case "playVideo":
+        next.text = null;
+        next.graphic = null;
         next.video = {
           src: String(command.src || ""),
           fit: command.fit || "contain",
@@ -124,6 +128,8 @@ export class OverlayRoom extends DurableObject {
         break;
       case "stopVideo": next.video = null; break;
       case "showText":
+        next.graphic = null;
+        next.video = null;
         next.text = {
           value: String(command.value || "").slice(0, 300),
           position: command.position === "top" ? "top" : "bottom",
