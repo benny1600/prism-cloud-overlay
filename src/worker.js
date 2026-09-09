@@ -83,11 +83,29 @@ export class OverlayRoom extends DurableObject {
       return;
     }
 
-    if (role === "overlay" && data?.type === "event" && data?.event === "videoEnded") {
+    if (role === "overlay" && data?.type === "event") {
       const current = (await this.ctx.storage.get("state")) || { ...DEFAULT_STATE };
-      if (current.video && (!data.src || current.video.src === data.src)) {
-        const next = { ...current, video: null, updatedAt: new Date().toISOString() };
-        await this.persistAndBroadcast(next);
+
+      if (data.event === "videoEnded") {
+        if (current.video && (!data.src || current.video.src === data.src)) {
+          const next = { ...current, video: null, updatedAt: new Date().toISOString() };
+          await this.persistAndBroadcast(next);
+        }
+        return;
+      }
+
+      if (data.event === "imageExpired") {
+        const id = String(data.id || "");
+        const src = String(data.src || "");
+        const graphics = Array.isArray(current.graphics) ? current.graphics : [];
+        const filtered = graphics.filter(g =>
+          !((id && String(g?.id || "") === id) || (src && String(g?.src || "") === src))
+        );
+        if (filtered.length !== graphics.length) {
+          const next = { ...current, graphics: filtered, updatedAt: new Date().toISOString() };
+          await this.persistAndBroadcast(next);
+        }
+        return;
       }
     }
   }
@@ -120,13 +138,16 @@ export class OverlayRoom extends DurableObject {
           transitionMs: Math.max(100, Math.min(2000, Number(command.transitionMs || 500)))
         };
         const currentGraphics = Array.isArray(current.graphics)
-          ? current.graphics
+          ? current.graphics.filter(g => g && g.src)
           : (current.graphic ? [{ ...current.graphic, id: current.graphic.id || crypto.randomUUID(), size: 40 }] : []);
-        // "Stay On" (duration 0) layers with other stay-on graphics.
-        // Timed graphics replace the image layer to keep temporary popups predictable.
+        const stayOn = currentGraphics.filter(g =>
+          Number(g.duration || 0) === 0 && g.src !== image.src
+        );
+        // Stay-on graphics remain. A temporary graphic replaces only other temporary graphics.
+        // A new stay-on graphic layers with the existing stay-on graphics.
         next.graphics = image.duration === 0
-          ? [...currentGraphics.filter(g => g?.src !== image.src), image].slice(-12)
-          : [image];
+          ? [...stayOn, image].slice(-12)
+          : [...stayOn, image].slice(-12);
         delete next.graphic;
         break;
       }
@@ -136,13 +157,9 @@ export class OverlayRoom extends DurableObject {
           : (current.graphic ? [{ ...current.graphic, id: current.graphic.id || "legacy" }] : []);
         const targetSrc = String(command.src || "");
         const targetId = String(command.id || "");
-        const now = Date.now();
         next.graphics = (targetSrc || targetId)
-          ? currentGraphics.map(g => {
-              const match = (targetSrc && g?.src === targetSrc) || (targetId && g?.id === targetId);
-              return match ? { ...g, removeAt: now, transitionOut: command.transitionOut || g.transitionOut || "fade", transitionMs: Math.max(100, Math.min(2000, Number(command.transitionMs || g.transitionMs || 500))) } : g;
-            })
-          : currentGraphics.map(g => ({ ...g, removeAt: now, transitionOut: command.transitionOut || g.transitionOut || "fade", transitionMs: Math.max(100, Math.min(2000, Number(command.transitionMs || g.transitionMs || 500))) }));
+          ? currentGraphics.filter(g => !((targetSrc && g?.src === targetSrc) || (targetId && g?.id === targetId)))
+          : [];
         delete next.graphic;
         break;
       }
@@ -167,6 +184,7 @@ export class OverlayRoom extends DurableObject {
           position: command.position === "top" ? "top" : "bottom",
           color: /^#[0-9a-fA-F]{6}$/.test(String(command.color || "")) ? command.color : "#ffffff",
           size: Math.max(18, Math.min(120, Number(command.size || 48))),
+          font: ["system","arial","georgia","impact","comic"].includes(String(command.font || "")) ? String(command.font) : "system",
           scroll: Boolean(command.scroll),
           scrollSeconds: Math.max(5, Math.min(40, Number(command.scrollSeconds || 12)))
         };

@@ -10,21 +10,6 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 #stage{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 #graphics{position:absolute;inset:0}
 .graphic{position:absolute;display:block;object-fit:contain;opacity:1;will-change:transform,opacity}
-.graphic.animating{transition-property:transform,opacity;transition-timing-function:ease}
-.graphic.in-fade{opacity:0}
-.graphic.in-slide-up{opacity:0;transform:translate(-50%,calc(-50% + 40px))}
-.graphic.in-slide-down{opacity:0;transform:translate(-50%,calc(-50% - 40px))}
-.graphic.in-slide-left{opacity:0;transform:translate(calc(-50% + 40px),-50%)}
-.graphic.in-slide-right{opacity:0;transform:translate(calc(-50% - 40px),-50%)}
-.graphic.in-zoom{opacity:0;transform:translate(-50%,-50%) scale(.78)}
-.graphic.in-pop{opacity:0;transform:translate(-50%,-50%) scale(.55)}
-.graphic.out-fade{opacity:0!important}
-.graphic.out-slide-up{opacity:0!important;transform:translateY(-40px)!important}
-.graphic.out-slide-down{opacity:0!important;transform:translateY(40px)!important}
-.graphic.out-slide-left{opacity:0!important;transform:translateX(-40px)!important}
-.graphic.out-slide-right{opacity:0!important;transform:translateX(40px)!important}
-.graphic.out-zoom{opacity:0!important;transform:scale(.78)!important}
-.graphic.out-pop{opacity:0!important;transform:scale(.55)!important}
 #video{position:absolute;display:none;object-fit:contain}
 #text{
   position:absolute;left:3%;right:3%;bottom:5%;display:none;overflow:hidden;
@@ -82,78 +67,72 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     return 'none';
   }
 
-  function inStartTransform(pos,type){
+  function transformFor(pos,type,isOut){
     const base=baseTransformFor(pos);
-    const map={
-      'slide-up':'translateY(40px)',
-      'slide-down':'translateY(-40px)',
-      'slide-left':'translateX(40px)',
-      'slide-right':'translateX(-40px)',
-      'zoom':'scale(.78)',
-      'pop':'scale(.55)'
-    };
-    if(type==='fade' || type==='none') return base;
-    const extra=map[type]||'';
+    let extra='';
+    switch(type){
+      case 'slide-up': extra=`translateY(${isOut?'-44px':'44px'})`; break;
+      case 'slide-down': extra=`translateY(${isOut?'44px':'-44px'})`; break;
+      case 'slide-left': extra=`translateX(${isOut?'-44px':'44px'})`; break;
+      case 'slide-right': extra=`translateX(${isOut?'44px':'-44px'})`; break;
+      case 'zoom': extra='scale(.78)'; break;
+      case 'pop': extra=`scale(${isOut?'.55':'.55'})`; break;
+    }
+    if(!extra)return base;
     return base==='none'?extra:`${base} ${extra}`;
   }
 
-  function outTransform(pos,type){
-    const base=baseTransformFor(pos);
-    const map={
-      'slide-up':'translateY(-40px)',
-      'slide-down':'translateY(40px)',
-      'slide-left':'translateX(-40px)',
-      'slide-right':'translateX(40px)',
-      'zoom':'scale(.78)',
-      'pop':'scale(.55)'
-    };
-    if(type==='fade' || type==='none') return base;
-    const extra=map[type]||'';
-    return base==='none'?extra:`${base} ${extra}`;
-  }
+  function animateIn(img){
+    const type=img.dataset.transitionIn||'fade';
+    const ms=Math.max(100,Math.min(2000,Number(img.dataset.transitionMs||500)));
+    const pos=img.dataset.position||'center';
+    const finalTransform=baseTransformFor(pos);
 
-  function animateIn(img,g){
-    const type=g.transitionIn||'fade';
-    const ms=Math.max(100,Math.min(2000,Number(g.transitionMs||500)));
     img.style.transition='none';
     img.style.opacity=type==='none'?'1':'0';
-    img.style.transform=inStartTransform(g.position,type);
+    img.style.transform=type==='none'?finalTransform:transformFor(pos,type,false);
     void img.offsetWidth;
-    img.style.transition=`transform ${ms}ms ease, opacity ${ms}ms ease`;
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+
+    if(type==='none')return;
+    img.style.transition=`opacity ${ms}ms ease, transform ${ms}ms ease`;
+    requestAnimationFrame(()=>{
       img.style.opacity='1';
-      img.style.transform=baseTransformFor(g.position);
-    }));
+      img.style.transform=finalTransform;
+    });
   }
 
-  function animateOut(img,g,onDone){
+  function animateOut(img,onDone){
     if(img.dataset.removing==='1')return;
     img.dataset.removing='1';
-    const type=g.transitionOut||'fade';
-    const ms=Math.max(100,Math.min(2000,Number(g.transitionMs||500)));
-    img.style.transition=`transform ${ms}ms ease, opacity ${ms}ms ease`;
-    if(type==='none'){img.style.opacity='0';setTimeout(onDone,0);return}
+    const type=img.dataset.transitionOut||'fade';
+    const ms=Math.max(100,Math.min(2000,Number(img.dataset.transitionMs||500)));
+    const pos=img.dataset.position||'center';
+
+    if(type==='none'){onDone();return}
+
+    img.style.transition=`opacity ${ms}ms ease, transform ${ms}ms ease`;
     img.style.opacity='0';
-    img.style.transform=outTransform(g.position,type);
-    setTimeout(onDone,ms+30);
+    img.style.transform=transformFor(pos,type,true);
+    setTimeout(onDone,ms+40);
   }
 
   function renderGraphics(state){
     const items=Array.isArray(state.graphics)
-      ? state.graphics
+      ? state.graphics.filter(g=>g?.src)
       : (state.graphic?.src ? [{...state.graphic,id:state.graphic.id||state.graphic.src,size:40}] : []);
-    const wanted=new Set(items.map(g=>String(g.id||g.src)));
 
+    const wanted=new Map(items.map(g=>[String(g.id||g.src),g]));
+
+    // Anything no longer in server state gets its own exit transition.
     for(const child of [...graphics.children]){
       if(!wanted.has(child.dataset.id)){
         clearTimeout(timers.get(child.dataset.id));
         timers.delete(child.dataset.id);
-        child.remove();
+        animateOut(child,()=>child.remove());
       }
     }
 
     for(const g of items){
-      if(!g?.src)continue;
       const id=String(g.id||g.src);
       let img=[...graphics.children].find(x=>x.dataset.id===id);
       const isNew=!img;
@@ -163,29 +142,35 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
         img.className='graphic';
         img.dataset.id=id;
         img.alt='';
+        img.dataset.removing='0';
         graphics.appendChild(img);
       }
+
+      img.dataset.position=g.position||'center';
+      img.dataset.transitionIn=g.transitionIn||'fade';
+      img.dataset.transitionOut=g.transitionOut||'fade';
+      img.dataset.transitionMs=String(Math.max(100,Math.min(2000,Number(g.transitionMs||500))));
+      img.dataset.src=g.src;
 
       if(img.getAttribute('src')!==g.src)img.src=g.src;
       img.style.objectFit=g.fit||'contain';
       place(img,g.position,g.size);
-      img.dataset.removing='0';
 
-      if(isNew) animateIn(img,g);
+      // place() sets the correct base transform for the selected location.
+      img.dataset.removing='0';
+      if(isNew) animateIn(img);
 
       clearTimeout(timers.get(id));
-
-      if(g.removeAt){
-        animateOut(img,g,()=>{img.remove();timers.delete(id)});
-        continue;
-      }
-
       if(Number(g.duration)>0){
-        const outMs=Math.max(100,Math.min(2000,Number(g.transitionMs||500)));
-        const delay=Math.max(0,Number(g.duration)-outMs);
         timers.set(id,setTimeout(()=>{
-          animateOut(img,g,()=>{img.remove();timers.delete(id)});
-        },delay));
+          animateOut(img,()=>{
+            img.remove();
+            timers.delete(id);
+            if(ws?.readyState===1){
+              ws.send(JSON.stringify({type:'event',event:'imageExpired',id,src:g.src}));
+            }
+          });
+        },Number(g.duration)));
       }
     }
   }
@@ -199,6 +184,8 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     textInner.textContent=t.value;text.style.display='block';
     text.style.top=t.position==='top'?'5%':'';text.style.bottom=t.position==='top'?'':'5%';
     text.style.color=t.color||'#ffffff';text.style.fontSize=`${Math.max(18,Math.min(120,Number(t.size||48)))}px`;
+    const fonts={system:'system-ui,-apple-system,Segoe UI,sans-serif',arial:'Arial,sans-serif',georgia:'Georgia,serif',impact:'Impact,Haettenschweiler,sans-serif',comic:'"Comic Sans MS","Comic Sans",cursive'};
+    text.style.fontFamily=fonts[t.font]||fonts.system;
     const scrolling=Boolean(t.scroll);text.className=scrolling?'scroll':'static';
     textInner.style.animation='none';void textInner.offsetWidth;
     if(scrolling){const seconds=Math.max(5,Math.min(40,Number(t.scrollSeconds||12)));textInner.style.animation=`ticker ${seconds}s linear infinite`}

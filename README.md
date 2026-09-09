@@ -1,14 +1,14 @@
-# v0.6 fixes
+# v0.7 fixes
 
 - Fixed scrolling text animation and forces animation restart on each update.
 - Showing text now clears image/video; showing an image/video clears text and the other media type.
 - Reworked image/video placement with explicit inline coordinates, including bottom-center sizing.
 
-# Prism Cloud Overlay v0.6
+# Prism Cloud Overlay v0.7
 
 An isolated mobile/Prism overlay system. It does not modify or depend on OBS.
 
-## v0.6 adds
+## v0.7 adds
 
 - Private Cloudflare R2 media library
 - Upload images/video from the mobile control panel
@@ -37,7 +37,7 @@ Your existing Worker secret `CONTROL_KEY` stays the same.
 
 ## Deploy using your existing GitHub repo
 
-Replace the repository contents with the contents of this v0.6 folder (do not upload the outer folder itself). Commit to the same branch Cloudflare is already watching.
+Replace the repository contents with the contents of this v0.7 folder (do not upload the outer folder itself). Commit to the same branch Cloudflare is already watching.
 
 Cloudflare should automatically redeploy with:
 
@@ -55,10 +55,10 @@ Controller:
 
 The controller asks for your CONTROL_KEY and keeps it in `sessionStorage`, so closing the tab locks the controller again.
 
-## First v0.6 test
+## First v0.7 test
 
 1. Create the R2 bucket.
-2. Push v0.6 to GitHub and let Cloudflare deploy.
+2. Push v0.7 to GitHub and let Cloudflare deploy.
 3. Open the controller and enter your existing CONTROL_KEY.
 4. Upload one small PNG/WebP.
 5. Tap SHOW and verify it appears in the already-working Prism overlay.
@@ -70,7 +70,7 @@ The controller asks for your CONTROL_KEY and keeps it in `sessionStorage`, so cl
 - Images: WebP or optimized PNG.
 - Video: H.264 MP4 is the safest compatibility choice for mobile; WebM can also work depending on the embedded browser.
 - Keep clips short and reasonably compressed.
-- v0.6 intentionally caps panel uploads at 75 MB per file.
+- v0.7 intentionally caps panel uploads at 75 MB per file.
 - Only one overlay video is designed to play at a time.
 
 ## Security model
@@ -86,7 +86,7 @@ The controller asks for your CONTROL_KEY and keeps it in `sessionStorage`, so cl
 Possible later upgrades include folders/categories, drag-and-drop button ordering, saved named presets, soft-delete/trash, thumbnails generated in the cloud, multiple overlay layers, and Streamer.bot API integration.
 
 
-## v0.6 changes
+## v0.7 changes
 - Fixed mobile image positioning with explicit top/bottom/left/right placement.
 - Added top-center, bottom-center, left-center and right-center media positions.
 - Added scrolling ticker text.
@@ -95,7 +95,7 @@ Possible later upgrades include folders/categories, drag-and-drop button orderin
 - Added Slow/Normal/Fast ticker speed.
 
 
-## v0.6 additions
+## v0.7 additions
 
 - Per-image display size: 20%, 30%, 40%, 50%, 60%, 75%, or 100%.
 - `Stay on + layer` allows multiple images/GIFs to remain visible together.
@@ -105,7 +105,7 @@ Possible later upgrades include folders/categories, drag-and-drop button orderin
 - Up to 12 stay-on graphics can be active at once to protect mobile performance.
 
 
-## v0.6 additions
+## v0.7 additions
 
 - Per-image entrance transitions:
   - None
@@ -122,3 +122,20 @@ Possible later upgrades include folders/categories, drag-and-drop button orderin
 - Timed images begin their exit transition before removal.
 - HIDE/STOP uses the selected exit transition.
 - CSS transform + opacity animations only, to remain lightweight for Prism/mobile.
+
+
+## v0.7 fixes and additions
+
+- Fixed image state so pressing SHOW on one card only adds that selected image.
+- Stay-on images persist when a temporary/timed image is shown.
+- Temporary images no longer replace stay-on images.
+- Removed the stale `removeAt` state that could revive old images.
+- Timed images clean themselves out of Durable Object state when they expire.
+- Exit transitions now run from the image's own stored transition settings.
+- Entrance transitions use explicit opacity/transform animation and work at every image position.
+- Added built-in text font choices with no external font downloads:
+  - System
+  - Arial
+  - Georgia
+  - Impact
+  - Comic Sans
