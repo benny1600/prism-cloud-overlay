@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ graphics: [], video: null, text: null, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ graphics: [], video: null, text: null, rideWait: null, updatedAt: null });
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml",
@@ -187,6 +187,15 @@ export class OverlayRoom extends DurableObject {
         };
         break;
       case "hideText": next.text = null; break;
+      case "showRideWait":
+        next.rideWait = {
+          park: [5,6,7,8].includes(Number(command.park)) ? Number(command.park) : 6,
+          position: ["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position || "")) ? String(command.position) : "bottom",
+          size: Math.max(20, Math.min(75, Number(command.size || 40))),
+          cycle: Math.max(3, Math.min(60, Number(command.cycle || 10)))
+        };
+        break;
+      case "hideRideWait": next.rideWait = null; break;
       case "clear": next = { ...DEFAULT_STATE }; break;
       default: return json({ ok: false, error: "Unknown action" }, { status: 400 });
     }
@@ -286,6 +295,33 @@ async function serveMedia(request, env, key) {
   return new Response(request.method === "HEAD" ? null : object.body, { status, headers });
 }
 
+
+async function serveRideWaitData(url) {
+  const park = Number(url.searchParams.get("park") || 6);
+  if (![5,6,7,8].includes(park)) {
+    return json({ ok: false, error: "Unsupported park" }, { status: 400 });
+  }
+
+  try {
+    const upstream = await fetch(`https://queue-times.com/parks/${park}/queue_times.json`, {
+      headers: { "accept": "application/json" }
+    });
+    if (!upstream.ok) throw new Error(`Queue-Times HTTP ${upstream.status}`);
+
+    const data = await upstream.json();
+    return json(data, {
+      headers: {
+        "cache-control": "public, max-age=60"
+      }
+    });
+  } catch (error) {
+    return json(
+      { ok: false, error: "Unable to load Queue-Times data" },
+      { status: 502 }
+    );
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -308,6 +344,10 @@ export default {
       const headers = new Headers(request.headers);
       headers.set("X-Overlay-Role", role === "control" ? "control" : "overlay");
       return stub.fetch(new Request(request, { headers }));
+    }
+
+    if (url.pathname === "/ride-waits-data" && request.method === "GET") {
+      return serveRideWaitData(url);
     }
 
     if (url.pathname.startsWith("/api/media/")) {

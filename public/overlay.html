@@ -21,6 +21,21 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 #text.scroll{text-align:left;overflow:hidden}
 #text.scroll #textInner{display:inline-block;white-space:nowrap;will-change:transform}
 @keyframes ticker{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+#rideWait{position:absolute;display:none;pointer-events:none}
+#rideWait .ride-card{
+  width:100%;background:rgba(0,0,0,.82);color:#fff;padding:10px 18px;border-radius:14px;
+  text-align:center;font-family:Arial,Helvetica,sans-serif;
+  box-shadow:0 0 8px rgba(0,0,0,.35);
+}
+#rideWait .ride-name{font-size:clamp(18px,2.8vw,54px);font-weight:700;line-height:1.08;word-break:break-word}
+#rideWait .wait-time{margin-top:4px;font-size:clamp(28px,5.6vw,96px);font-weight:900;line-height:1.0;white-space:nowrap}
+#rideWait .credit{margin-top:5px;font-size:clamp(9px,1vw,16px);opacity:.78;white-space:nowrap}
+#rideWait.green .ride-card{background:rgba(0,160,0,.9);animation:pulseGreen 2s ease-in-out infinite}
+#rideWait.yellow .ride-card{background:rgba(220,170,0,.9);animation:pulseYellow 2.2s ease-in-out infinite}
+#rideWait.red .ride-card{background:rgba(180,0,0,.9);animation:pulseRed 1.6s ease-in-out infinite}
+@keyframes pulseGreen{0%,100%{transform:scale(1);box-shadow:0 0 6px rgba(0,255,0,.4)}50%{transform:scale(1.03);box-shadow:0 0 16px rgba(0,255,0,.7)}}
+@keyframes pulseYellow{0%,100%{transform:scale(1);box-shadow:0 0 4px rgba(255,230,0,.3)}50%{transform:scale(1.02);box-shadow:0 0 14px rgba(255,230,0,.7)}}
+@keyframes pulseRed{0%,100%{transform:scale(1);box-shadow:0 0 4px rgba(255,0,0,.4)}50%{transform:scale(1.05);box-shadow:0 0 20px rgba(255,0,0,.9)}}
 #status{display:none;position:absolute;top:8px;left:8px;padding:5px 8px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:12px system-ui,sans-serif}
 </style>
 </head>
@@ -29,13 +44,21 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
   <div id="graphics"></div>
   <video id="video" playsinline preload="metadata"></video>
   <div id="text" class="static"><span id="textInner"></span></div>
+  <div id="rideWait">
+    <div class="ride-card">
+      <div id="rideName" class="ride-name"></div>
+      <div id="rideTime" class="wait-time">--</div>
+      <div class="credit">Powered by Queue-Times.com</div>
+    </div>
+  </div>
   <div id="status"></div>
 </div>
 <script>
 (() => {
   const q=new URLSearchParams(location.search), room=q.get('room')||'default', debug=q.get('debug')==='1';
-  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), status=document.querySelector('#status');
+  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), status=document.querySelector('#status');
   let ws,retry=1000,currentVideoSrc=''; const timers=new Map(); if(debug)status.style.display='block';
+  let rideItems=[],rideIndex=0,rideCycleTimer=null,rideRefreshTimer=null,rideConfigKey='';
   const setStatus=s=>{if(debug)status.textContent=s};
   const allowedPositions=new Set(['center','top','bottom','left','right','top-left','top-right','bottom-left','bottom-right']);
 
@@ -107,6 +130,95 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     Object.assign(el.style,{inset:'auto',top:'0',left:'0',width:'100%',height:'100%',maxWidth:'100%',maxHeight:'100%',transform:'none'});
   }
 
+
+  const OMITTED_RIDES=new Set([
+    "A Pirate's Adventure ~ Treasures of the Seven Seas",
+    "Main Street Vehicles",
+    "Casey Jr. Splash 'N' Soak Station"
+  ]);
+  const RIDE_ALIASES={
+    "Expedition Everest - Legend of the Forbidden Mountain":"Expedition Everest",
+    "Millennium Falcon: Smugglers Run":"Smugglers Run",
+    "Journey of Water, Inspired by Moana":"Moana – Journey of Water"
+  };
+
+  function rideList(data){
+    const out=[];
+    for(const land of (data?.lands||[])){
+      for(const r of (land.rides||[])){
+        if(!r?.name||OMITTED_RIDES.has(r.name))continue;
+        out.push(r);
+      }
+    }
+    return out;
+  }
+
+  function renderRide(){
+    if(!rideItems.length){
+      rideWait.style.display='none';
+      return;
+    }
+    const r=rideItems[rideIndex % rideItems.length];
+    rideWait.style.display='block';
+    rideWait.className='';
+    rideName.textContent=RIDE_ALIASES[r.name]||r.name;
+    const raw=typeof r.wait_time==='number'?r.wait_time:null;
+    rideTime.textContent=raw!==null?`${raw} min`:(r.is_open!==false?'—':'Closed');
+    if(raw!==null){
+      if(raw<=30)rideWait.classList.add('green');
+      else if(raw<=60)rideWait.classList.add('yellow');
+      else rideWait.classList.add('red');
+    }
+  }
+
+  function stopRideTimers(){
+    clearInterval(rideCycleTimer); rideCycleTimer=null;
+    clearInterval(rideRefreshTimer); rideRefreshTimer=null;
+  }
+
+  async function refreshRideWait(cfg){
+    try{
+      const r=await fetch(`/ride-waits-data?park=${encodeURIComponent(cfg.park)}`,{cache:'no-store'});
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const data=await r.json();
+      rideItems=rideList(data);
+      rideIndex=0;
+      renderRide();
+    }catch(e){
+      console.warn('Ride waits:',e);
+      rideItems=[];
+      rideWait.style.display='none';
+    }
+  }
+
+  function applyRideWait(cfg){
+    if(!cfg){
+      rideConfigKey='';
+      rideItems=[];
+      stopRideTimers();
+      rideWait.style.display='none';
+      return;
+    }
+
+    place(rideWait,cfg.position,cfg.size);
+    rideWait.style.maxHeight='none';
+
+    const key=`${cfg.park}|${cfg.position}|${cfg.size}|${cfg.cycle}`;
+    if(key===rideConfigKey){
+      renderRide();
+      return;
+    }
+    rideConfigKey=key;
+    stopRideTimers();
+    refreshRideWait(cfg);
+    rideCycleTimer=setInterval(()=>{
+      if(!rideItems.length)return;
+      rideIndex=(rideIndex+1)%rideItems.length;
+      renderRide();
+    },Math.max(3,Number(cfg.cycle||10))*1000);
+    rideRefreshTimer=setInterval(()=>refreshRideWait(cfg),300000);
+  }
+
   function applyText(t){
     if(!t?.value){textInner.textContent='';text.style.display='none';return}
     textInner.textContent=t.value;text.style.display='block';
@@ -128,6 +240,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       if(video.src!==desired){currentVideoSrc=state.video.src;video.src=state.video.src;video.play().catch(()=>{})}
     } else {currentVideoSrc='';video.pause();video.removeAttribute('src');video.load();video.style.display='none'}
     applyText(state.text);
+    applyRideWait(state.rideWait);
   }
 
   video.addEventListener('ended',()=>{video.style.display='none';if(ws?.readyState===1)ws.send(JSON.stringify({type:'event',event:'videoEnded',src:currentVideoSrc}))});

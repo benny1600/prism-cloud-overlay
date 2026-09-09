@@ -156,3 +156,18 @@ Possible later upgrades include folders/categories, drag-and-drop button orderin
 - Text is now independent from the image layer.
 - Showing or updating text no longer clears stay-on or timed images.
 - Hiding text affects only the text layer.
+
+
+## v0.10 — Disney Ride Waits
+
+Added a new **Ride Waits** tab to the mobile controller.
+
+- Four park cards: Magic Kingdom, EPCOT, Hollywood Studios, Animal Kingdom.
+- Each park card has its own position, size, and cycle-speed controls.
+- The ride-wait layer is independent from image and text layers.
+- Waits refresh from Queue-Times every 5 minutes.
+- Rides cycle automatically.
+- Green: 0–30 minutes, Yellow: 31–60, Red: 61+.
+- Existing omitted rides and shortened attraction names are preserved.
+- `HIDE RIDE WAITS` hides only the ride-wait layer.
+- `CLEAR SCREEN` still clears all overlay layers.
