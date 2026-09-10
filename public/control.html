@@ -188,6 +188,7 @@
   function renderState(s){
     if(s)latestState={...latestState,...s,lineTimer:{...latestState.lineTimer,...(s.lineTimer||{})}};
     const park=latestState.currentPark||'mk';
+    if($('#waitDisplayMode') && latestState.rideWait){$('#waitDisplayMode').value=(latestState.rideWait.ticker||latestState.rideWait.displayMode==='ticker')?'ticker':'card'}
     if($('#currentPark')&&$('#currentPark').value!==park)$('#currentPark').value=park;
     if($('#currentParkNote'))$('#currentParkNote').textContent=park==='springs'?'Ride Waits are unavailable at Disney Springs. Weather and Radar still work.':'';
     const t=latestState.lineTimer||{};
@@ -347,7 +348,7 @@
       <div class="settings"><select class="field" id="weatherPos">${positionOptions('top-right')}</select><select class="field" id="weatherSize"><option value="10">10% size</option><option value="15">15% size</option><option value="20">20% size</option><option value="25">25% size</option><option value="30">30% size</option><option value="40" selected>40% size</option><option value="50">50% size</option><option value="60">60% size</option><option value="75">75% size</option><option value="100">100% size</option></select></div>
       <div class="settings"><select class="field" id="weatherUnit"><option value="f" selected>Fahrenheit</option><option value="c">Celsius</option></select><button id="currentWeatherShow" class="bigbtn play">SHOW WEATHER</button></div>
     </div></div>`;
-    $('#currentRideShow').onclick=()=>{const p=selectedPark();if(p==='springs'){note('Ride Waits are unavailable at Disney Springs');return}cmd({action:'showRideWait', displayMode:($('#waitDisplayMode')?.value||'card'),parkKey:p,park:PARK_IDS[p],position:$('#ridePos').value,size:Number($('#rideSize').value),cycle:Number($('#rideCycle').value)})};
+    $('#currentRideShow').onclick=()=>{const p=selectedPark();if(p==='springs'){note('Ride Waits are unavailable at Disney Springs');return}const mode=$('#waitDisplayMode')?.value==='ticker'?'ticker':'card';const action=mode==='ticker'?'showRideWaitTicker':'showRideWaitCard';cmd({action,parkKey:p,park:PARK_IDS[p],position:$('#ridePos').value,size:Number($('#rideSize').value),cycle:Number($('#rideCycle').value)});note(mode==='ticker'?'Showing Wait Times ticker':'Showing Wait Times card')};
     $('#currentWeatherShow').onclick=()=>cmd({action:'showWeather',park:selectedPark(),position:$('#weatherPos').value,size:Number($('#weatherSize').value),unit:$('#weatherUnit').value});
   }
 

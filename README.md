@@ -290,3 +290,21 @@ Added a new **Ride Waits** tab to the mobile controller.
 - Rebuilt ticker as two duplicated groups for a seamless continuous marquee loop.
 - Animation restarts cleanly when park, size, speed, or ride data changes.
 - Card mode remains unchanged.
+
+
+## v0.20 — Explicit Card / Ticker Command Fix
+
+This version removes the ambiguous shared wait-display command path.
+
+- Controller now sends explicit commands:
+  - `showRideWaitCard`
+  - `showRideWaitTicker`
+- Worker stores both:
+  - `displayMode`
+  - explicit boolean `ticker`
+- Overlay gives the explicit `ticker` flag priority.
+- Card and Ticker remain mutually exclusive.
+- Ticker gets a high z-index and visible minimum height.
+- Ticker begins with a park-name label such as `EPCOT Wait Times`.
+- Controller displays a confirmation toast indicating whether Card or Ticker was requested.
+- Controller also syncs the Display Mode selector from the cloud state when state returns.

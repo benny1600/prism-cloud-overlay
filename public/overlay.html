@@ -91,7 +91,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 #lineTimer .timer-reported{font-size:14px;font-weight:700;opacity:.88;margin-top:5px}#lineTimer .timer-time{font-size:38px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:1px;margin-top:8px}
 #lineTimer .timer-label{font-size:11px;opacity:.75;margin-top:4px;text-transform:uppercase;letter-spacing:.8px}
 
-#rideTicker{position:absolute;display:none;pointer-events:none;left:0;right:0;bottom:18px;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff}
+#rideTicker{position:absolute;display:none;pointer-events:none;left:0;right:0;bottom:18px;z-index:9999;min-height:48px;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff}
 #rideTicker .ticker-shell{position:relative;width:100%;overflow:hidden;background:rgba(8,12,18,.92);color:#fff;border-top:1px solid rgba(255,255,255,.15);border-bottom:1px solid rgba(255,255,255,.15);box-shadow:0 8px 24px rgba(0,0,0,.4)}
 #rideTicker .ticker-track{display:flex;width:max-content;align-items:center;white-space:nowrap;will-change:transform;animation:rideTickerScroll 36s linear infinite}
 #rideTicker .ticker-group{display:flex;align-items:center;gap:34px;white-space:nowrap;padding:10px 34px 10px 0}
@@ -308,6 +308,8 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     return 'red';
   }
 
+  const TICKER_PARK_NAMES={mk:'Magic Kingdom',epcot:'EPCOT',hs:'Hollywood Studios',ak:'Animal Kingdom'};
+
   function renderRideTicker(rides,cfg){
     if(!rideTicker||!rideTickerTrack)return;
     const usable=(Array.isArray(rides)?rides:[]).filter(r=>r && r.name);
@@ -322,6 +324,12 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     function buildGroup(){
       const group=document.createElement('div');
       group.className='ticker-group';
+
+      const parkLabel=document.createElement('span');
+      parkLabel.className='ticker-item';
+      parkLabel.style.fontWeight='900';
+      parkLabel.textContent=`${TICKER_PARK_NAMES[cfg?.parkKey]||'Park'} Wait Times`;
+      group.appendChild(parkLabel);
 
       usable.forEach(r=>{
         const item=document.createElement('span');
@@ -385,7 +393,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       );
       rideIndex=0;
 
-      const mode=(cfg.displayMode||'card').toLowerCase();
+      const mode=cfg.ticker===true?'ticker':String(cfg.displayMode||'card').toLowerCase();
 
       if(mode==='ticker'){
         // Ticker mode is exclusive: never render the rotating card.
@@ -415,10 +423,10 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       return;
     }
 
-    const mode=(cfg.displayMode||'card').toLowerCase();
+    const mode=cfg.ticker===true?'ticker':String(cfg.displayMode||'card').toLowerCase();
 
     // Include displayMode so changing Card <-> Ticker always reapplies the overlay.
-    const key=`${cfg.park}|${cfg.parkKey||''}|${cfg.position}|${cfg.size}|${cfg.cycle}|${mode}|${rideSettingsSignature}`;
+    const key=`${cfg.park}|${cfg.parkKey||''}|${cfg.position}|${cfg.size}|${cfg.cycle}|${mode}|${cfg.ticker===true?'1':'0'}|${rideSettingsSignature}`;
 
     if(key===rideConfigKey){
       if(mode==='ticker'){

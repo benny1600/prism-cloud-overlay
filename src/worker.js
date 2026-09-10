@@ -238,6 +238,15 @@ export class OverlayRoom extends DurableObject {
         next.currentPark = normalizePark(command.park);
         break;
       case "showRideWait":
+      case "showRideWaitCard":
+      case "showRideWaitTicker": {
+        const explicitTicker = command.action === "showRideWaitTicker";
+        const explicitCard = command.action === "showRideWaitCard";
+        const requestedMode = explicitTicker ? "ticker" : explicitCard ? "card" :
+          (["card","ticker"].includes(String(command.displayMode || "").toLowerCase())
+            ? String(command.displayMode).toLowerCase()
+            : "card");
+
         next.rideWait = {
           parkKey: normalizePark(command.parkKey || next.currentPark),
           park: (() => {
@@ -247,10 +256,12 @@ export class OverlayRoom extends DurableObject {
           })(),
           position: ["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position || "")) ? String(command.position) : "bottom",
           size: Math.max(2, Math.min(75, Number(command.size || 20))),
-          displayMode: ["card","ticker"].includes(String(command.displayMode || "").toLowerCase()) ? String(command.displayMode).toLowerCase() : "card",
+          displayMode: requestedMode,
+          ticker: requestedMode === "ticker",
           cycle: Math.max(3, Math.min(60, Number(command.cycle || 10)))
         };
         break;
+      }
       case "hideRideWait": next.rideWait = null; break;
       case "showWeather":
         next.weather = {
