@@ -239,3 +239,18 @@ Added a new **Ride Waits** tab to the mobile controller.
   - **Our Wait** live stopwatch underneath
 - STOP freezes the actual wait and labels it **Final Actual Wait**.
 - Timing remains persistent through controller reloads/phone screen changes because the start timestamp is stored in the Durable Object.
+
+
+## v0.16 — Dedicated Line Timer Park Selector
+
+- Added a **Park selector directly on the Line Timer card**.
+- Timer park selection is now independent from the global **Current Park** selector.
+- Changing the timer park immediately refreshes the attraction list.
+- Supported timer park choices:
+  - Magic Kingdom
+  - EPCOT
+  - Hollywood Studios
+  - Animal Kingdom
+  - Disney Springs
+- Disney Springs falls back to **Custom / Other line**, since Queue-Times ride data is not used there.
+- Starting/configuring a timer stores the selected timer park with the timer state.

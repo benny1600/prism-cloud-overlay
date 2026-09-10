@@ -100,7 +100,14 @@
     <div class="timer-card">
       <div class="name">Line Timer</div>
       <div class="meta">Persistent queue stopwatch. Timing and on-screen visibility are independent.</div>
-      <select id="timerRide" class="field" style="margin-top:10px"><option value="">Loading rides…</option></select>
+      <select id="timerPark" class="field" style="margin-top:10px">
+        <option value="mk">Magic Kingdom</option>
+        <option value="epcot">EPCOT</option>
+        <option value="hs">Hollywood Studios</option>
+        <option value="ak">Animal Kingdom</option>
+        <option value="springs">Disney Springs</option>
+      </select>
+      <select id="timerRide" class="field" style="margin-top:8px"><option value="">Loading rides…</option></select>
       <input id="timerName" class="field" maxlength="80" placeholder="Custom attraction / line name" style="margin-top:8px;display:none">
       <div id="timerReported" class="timer-reported">Reported wait at start: —</div>
       <div id="timerDisplay" class="timer-display">00:00:00</div>
@@ -175,6 +182,7 @@
   function waitLabel(r){if(typeof r?.wait_time==='number')return `${r.wait_time} min`;return r?.is_open===false?'Closed':'—'}
 
   function selectedPark(){return $('#currentPark')?.value||latestState.currentPark||'mk'}
+  function selectedTimerPark(){return $('#timerPark')?.value||latestState.lineTimer?.park||selectedPark()||'mk'}
   function fmtElapsed(ms){const t=Math.floor(Math.max(0,Number(ms||0))/1000);return [Math.floor(t/3600),Math.floor((t%3600)/60),t%60].map(v=>String(v).padStart(2,'0')).join(':')}
   function timerElapsed(t){let ms=Math.max(0,Number(t?.accumulatedMs||0));if(t?.running&&t.startedAt)ms+=Math.max(0,Date.now()-Number(t.startedAt));return ms}
   function renderState(s){
@@ -183,6 +191,10 @@
     if($('#currentPark')&&$('#currentPark').value!==park)$('#currentPark').value=park;
     if($('#currentParkNote'))$('#currentParkNote').textContent=park==='springs'?'Ride Waits are unavailable at Disney Springs. Weather and Radar still work.':'';
     const t=latestState.lineTimer||{};
+    if($('#timerPark') && document.activeElement!==$('#timerPark')){
+      const timerPark=t.park||park;
+      if($('#timerPark').value!==timerPark)$('#timerPark').value=timerPark;
+    }
     if($('#timerDisplay'))$('#timerDisplay').textContent=fmtElapsed(timerElapsed(t));
     if($('#timerState'))$('#timerState').textContent=`${t.running?'Running':'Stopped'} • ${t.visible?'On screen':'Hidden'}`;
     if($('#timerReported')){const rep=typeof t.reportedWait==='number'?`${t.reportedWait} min`:(t.reportedStatus||'—');$('#timerReported').textContent=`Reported wait at start: ${rep}`}
@@ -292,7 +304,7 @@
     }
   }
   async function loadTimerRides(){
-    const park=selectedPark(),sel=$('#timerRide');if(!sel)return;
+    const park=selectedTimerPark(),sel=$('#timerRide');if(!sel)return;
     if(park==='springs'){timerRideData=[];sel.innerHTML='<option value="__custom__">Custom / Other line</option>';sel.value='__custom__';syncTimerCustomField();return}
     const previous=sel.value;sel.innerHTML='<option value="">Loading rides…</option>';
     try{
@@ -306,12 +318,12 @@
   function selectedTimerRide(){const key=$('#timerRide')?.value||'';return timerRideData.find(r=>rideKey(r)===key)||null}
   function syncTimerCustomField(){const custom=$('#timerRide')?.value==='__custom__',input=$('#timerName');if(input){input.style.display=custom?'block':'none';if(custom&&document.activeElement!==input&&latestState.lineTimer?.rideKey==='')input.value=latestState.lineTimer?.name||''}}
   function configureTimerSelection(){
-    const park=selectedPark(),r=selectedTimerRide(),custom=$('#timerRide')?.value==='__custom__';syncTimerCustomField();
+    const park=selectedTimerPark(),r=selectedTimerRide(),custom=$('#timerRide')?.value==='__custom__';syncTimerCustomField();
     if(custom){cmd({action:'timerConfigure',park,rideKey:'',name:$('#timerName').value||'Line Timer'});return}
     if(r)cmd({action:'timerConfigure',park,rideKey:rideKey(r),name:displayRideName(park,r)});
   }
   async function startSelectedTimer(){
-    const park=selectedPark(),custom=$('#timerRide')?.value==='__custom__';
+    const park=selectedTimerPark(),custom=$('#timerRide')?.value==='__custom__';
     if(custom){cmd({action:'timerStart',park,rideKey:'',name:$('#timerName').value||'Line Timer',reportedWait:null,reportedStatus:''});return}
     let r=selectedTimerRide();
     try{const fresh=await fetchParkRides(park);const key=$('#timerRide').value;r=fresh.find(x=>rideKey(x)===key)||r;if(r)timerRideData=timerRideData.map(x=>rideKey(x)===key?r:x)}catch{}
@@ -350,7 +362,8 @@
     zoom:Number($('#radarZoom').value)
   });
   $('#hideRadar').onclick=()=>cmd({action:'hideRadar'});
-  $('#currentPark').onchange=()=>{cmd({action:'setCurrentPark',park:selectedPark()});renderState({currentPark:selectedPark()});loadTimerRides()};
+  $('#currentPark').onchange=()=>{cmd({action:'setCurrentPark',park:selectedPark()});renderState({currentPark:selectedPark()})};
+  $('#timerPark').onchange=()=>{loadTimerRides()};
   $('#timerRide').onchange=configureTimerSelection;
   $('#timerName').onchange=configureTimerSelection;
   $('#timerStart').onclick=startSelectedTimer;
