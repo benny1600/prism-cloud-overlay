@@ -6,6 +6,8 @@
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0e0f12;color:#f6f7f9}button,input,select{font:inherit}main{max-width:900px;margin:auto;padding:14px 14px 90px}.top{position:sticky;top:0;z-index:20;background:rgba(14,15,18,.96);backdrop-filter:blur(8px);padding:10px 0}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.grow{flex:1}.status{font-size:13px;opacity:.75}.tabs{display:flex;gap:8px;margin-top:10px}.tab{padding:10px 14px;border-radius:12px;border:1px solid #30343b;background:#17191e;color:#fff}.tab.active{background:#f3f4f6;color:#111}.panel{display:none;margin-top:14px}.panel.active{display:block}.card{border:1px solid #2c3037;background:#15171b;border-radius:16px;padding:12px}.library{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}.media-card{border:1px solid #2b3037;border-radius:15px;background:#15171b;overflow:hidden}.preview{aspect-ratio:16/10;background:#090a0c;display:flex;align-items:center;justify-content:center;overflow:hidden}.preview img,.preview video{width:100%;height:100%;object-fit:contain}.info{padding:10px}.name{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:12px;opacity:.65;margin-top:3px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.actions button,.bigbtn{border:0;border-radius:12px;min-height:44px;font-weight:800}.play{background:#f4f5f7;color:#111}.secondary{background:#252932;color:#fff}.danger{background:#782a2a;color:#fff}.clear{position:fixed;z-index:30;bottom:12px;left:50%;transform:translateX(-50%);width:min(860px,calc(100% - 24px));min-height:58px;border:0;border-radius:16px;background:#c93b3b;color:white;font-weight:900;font-size:18px}.uploadbox{border:2px dashed #343942;border-radius:18px;padding:18px;text-align:center}.uploadbox input{width:100%;margin:10px 0}.field{width:100%;padding:10px;border-radius:11px;border:1px solid #353a43;background:#111318;color:white;font-size:13px}select.field{font-size:12px;padding:9px 7px}.settings{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}.login{position:fixed;inset:0;z-index:99;background:#0e0f12;display:flex;align-items:center;justify-content:center;padding:18px}.loginbox{width:min(420px,100%);border:1px solid #30343b;background:#15171b;border-radius:20px;padding:20px}.loginbox h1{margin-top:0}.hidden{display:none!important}.toast{position:fixed;z-index:120;top:14px;left:50%;transform:translateX(-50%);background:#242831;border:1px solid #3a404b;padding:10px 14px;border-radius:12px;display:none;max-width:90%}
 .current-park-card,.timer-card{margin-top:14px;padding:14px;border:1px solid #2c3037;border-radius:16px;background:#15171b}.current-park-card select,.timer-card input{width:100%;min-height:46px;font-size:16px}.timer-display{font-variant-numeric:tabular-nums;font-size:34px;font-weight:900;text-align:center;padding:10px 0}.timer-state{text-align:center;font-size:12px;opacity:.7}.timer-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:9px}.timer-actions.two{grid-template-columns:1fr 1fr}.timer-actions button{min-height:48px}
+
+.ride-setup-toolbar{display:grid;grid-template-columns:1fr auto;gap:9px;margin-bottom:12px}.ride-setup-list{display:grid;gap:10px}.ride-setup-row{border:1px solid #2c3037;background:#15171b;border-radius:14px;padding:11px}.ride-original{font-size:12px;opacity:.65;margin-bottom:7px}.ride-setup-row input[type="text"]{width:100%;min-height:44px}.ride-setup-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.omit-line{display:flex;align-items:center;gap:9px;min-height:44px;margin-top:7px}.omit-line input{width:22px;height:22px}.timer-reported{text-align:center;font-size:13px;opacity:.82;margin-top:5px}.timer-card select{width:100%;min-height:46px;font-size:16px}
 </style>
 </head>
 <body>
@@ -16,7 +18,7 @@
 <main>
 <div class="top">
   <div class="row"><div class="grow"><strong>Mobile Overlay</strong><div id="conn" class="status">Disconnected</div></div><button id="logout" class="tab">Lock</button></div>
-  <div class="tabs" style="overflow-x:auto"><button class="tab active" data-tab="library">Library</button><button class="tab" data-tab="upload">Upload</button><button class="tab" data-tab="text">Text</button><button class="tab" data-tab="rides">Parks</button></div>
+  <div class="tabs" style="overflow-x:auto"><button class="tab active" data-tab="library">Library</button><button class="tab" data-tab="upload">Upload</button><button class="tab" data-tab="text">Text</button><button class="tab" data-tab="rides">Parks</button><button class="tab" data-tab="rideSettings">Ride Setup</button></div>
 </div>
 
 <section id="library" class="panel active">
@@ -98,7 +100,9 @@
     <div class="timer-card">
       <div class="name">Line Timer</div>
       <div class="meta">Persistent queue stopwatch. Timing and on-screen visibility are independent.</div>
-      <input id="timerName" class="field" maxlength="80" placeholder="Attraction name (optional)" style="margin-top:10px">
+      <select id="timerRide" class="field" style="margin-top:10px"><option value="">Loading rides…</option></select>
+      <input id="timerName" class="field" maxlength="80" placeholder="Custom attraction / line name" style="margin-top:8px;display:none">
+      <div id="timerReported" class="timer-reported">Reported wait at start: —</div>
       <div id="timerDisplay" class="timer-display">00:00:00</div>
       <div id="timerState" class="timer-state">Stopped • Hidden</div>
       <div class="timer-actions"><button id="timerStart" class="bigbtn play">START</button><button id="timerStop" class="bigbtn secondary">STOP</button><button id="timerReset" class="bigbtn secondary">RESET</button></div>
@@ -109,6 +113,21 @@
       <button id="hideRideWait" class="bigbtn secondary">HIDE RIDE WAITS</button>
       <button id="hideWeather" class="bigbtn secondary">HIDE WEATHER</button>
     </div>
+  </div>
+</section>
+
+<section id="rideSettings" class="panel">
+  <div class="card">
+    <h2 style="margin-top:0">Ride Setup</h2>
+    <p class="status">Rename attractions or omit them from the rotating Ride Waits list. Settings are saved in this cloud room.</p>
+    <div class="ride-setup-toolbar">
+      <select id="rideSettingsPark" class="field">
+        <option value="mk">Magic Kingdom</option><option value="epcot">EPCOT</option><option value="hs">Hollywood Studios</option><option value="ak">Animal Kingdom</option>
+      </select>
+      <button id="rideSettingsRefresh" class="tab">Refresh</button>
+    </div>
+    <input id="rideSettingsSearch" class="field" placeholder="Search attractions" style="margin-bottom:12px">
+    <div id="rideSettingsList" class="ride-setup-list"><div class="status">Open this tab to load attractions.</div></div>
   </div>
 </section>
 
@@ -131,8 +150,30 @@
     ws.onopen=()=>{retry=1000;conn.textContent=`Connected • ${room}`};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state')renderState(m.state||{})}catch{}};ws.onclose=e=>{if(!key)return;conn.textContent=e.code===1008?'Unauthorized':'Reconnecting…';setTimeout(connect,retry);retry=Math.min(retry*1.6,10000)};ws.onerror=()=>ws.close();
   }
   function cmd(payload){if(ws?.readyState===1)ws.send(JSON.stringify(payload));else note('Controller is reconnecting')}
-  let latestState={currentPark:'mk',lineTimer:{name:'',running:false,visible:false,startedAt:null,accumulatedMs:0}};
+  let latestState={currentPark:'mk',rideSettings:{},lineTimer:{name:'',rideKey:'',park:'mk',reportedWait:null,reportedStatus:'',running:false,visible:false,startedAt:null,accumulatedMs:0}};
   const PARK_IDS={mk:6,epcot:5,hs:7,ak:8};
+
+  const PARK_NAMES={mk:'Magic Kingdom',epcot:'EPCOT',hs:'Hollywood Studios',ak:'Animal Kingdom',springs:'Disney Springs'};
+  const BASE_RIDE_DEFAULTS={
+    mk:{
+      "name:A Pirate's Adventure ~ Treasures of the Seven Seas":{displayName:'',omitted:true},
+      "name:Main Street Vehicles":{displayName:'',omitted:true},
+      "name:Casey Jr. Splash 'N' Soak Station":{displayName:'',omitted:true}
+    },
+    epcot:{"name:Journey of Water, Inspired by Moana":{displayName:'Moana – Journey of Water',omitted:false}},
+    hs:{"name:Millennium Falcon: Smugglers Run":{displayName:'Smugglers Run',omitted:false}},
+    ak:{"name:Expedition Everest - Legend of the Forbidden Mountain":{displayName:'Expedition Everest',omitted:false}}
+  };
+  let rideSetupData=[],timerRideData=[];
+  function rideKey(r){return r?.id!=null?`id:${r.id}`:`name:${r?.name||''}`}
+  function baseRideSetting(park,r){return BASE_RIDE_DEFAULTS[park]?.[`name:${r?.name||''}`]||null}
+  function customRideSetting(park,r){const ps=latestState.rideSettings?.[park]||{};return ps[rideKey(r)]||ps[`name:${r?.name||''}`]||null}
+  function effectiveRideSetting(park,r){return customRideSetting(park,r)||baseRideSetting(park,r)||{displayName:'',omitted:false}}
+  function displayRideName(park,r){const s=effectiveRideSetting(park,r);return (s.displayName||r?.name||'Attraction').trim()}
+  function flattenRides(data){const a=[];for(const land of (data?.lands||[]))for(const r of (land.rides||[]))if(r?.name)a.push(r);return a.sort((x,y)=>String(x.name).localeCompare(String(y.name)))}
+  async function fetchParkRides(park){if(!PARK_IDS[park])return[];const r=await fetch(`/ride-waits-data?park=${PARK_IDS[park]}`,{cache:'no-store'});if(!r.ok)throw new Error(`Ride data HTTP ${r.status}`);return flattenRides(await r.json())}
+  function waitLabel(r){if(typeof r?.wait_time==='number')return `${r.wait_time} min`;return r?.is_open===false?'Closed':'—'}
+
   function selectedPark(){return $('#currentPark')?.value||latestState.currentPark||'mk'}
   function fmtElapsed(ms){const t=Math.floor(Math.max(0,Number(ms||0))/1000);return [Math.floor(t/3600),Math.floor((t%3600)/60),t%60].map(v=>String(v).padStart(2,'0')).join(':')}
   function timerElapsed(t){let ms=Math.max(0,Number(t?.accumulatedMs||0));if(t?.running&&t.startedAt)ms+=Math.max(0,Date.now()-Number(t.startedAt));return ms}
@@ -142,9 +183,10 @@
     if($('#currentPark')&&$('#currentPark').value!==park)$('#currentPark').value=park;
     if($('#currentParkNote'))$('#currentParkNote').textContent=park==='springs'?'Ride Waits are unavailable at Disney Springs. Weather and Radar still work.':'';
     const t=latestState.lineTimer||{};
-    if($('#timerName')&&document.activeElement!==$('#timerName'))$('#timerName').value=t.name||'';
     if($('#timerDisplay'))$('#timerDisplay').textContent=fmtElapsed(timerElapsed(t));
     if($('#timerState'))$('#timerState').textContent=`${t.running?'Running':'Stopped'} • ${t.visible?'On screen':'Hidden'}`;
+    if($('#timerReported')){const rep=typeof t.reportedWait==='number'?`${t.reportedWait} min`:(t.reportedStatus||'—');$('#timerReported').textContent=`Reported wait at start: ${rep}`}
+    if($('#rideSettingsPark')&&document.activeElement!==$('#rideSettingsPark'))$('#rideSettingsPark').value=park==='springs'?'mk':park;
   }
   setInterval(()=>renderState(),250);
   const fmt=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
@@ -230,6 +272,53 @@
     return opts.map(([v,l])=>`<option value="${v}" ${v===defaultValue?'selected':''}>${l}</option>`).join('');
   }
 
+
+  async function loadRideSetup(){
+    const park=$('#rideSettingsPark')?.value||'mk',list=$('#rideSettingsList');if(!list)return;
+    list.innerHTML='<div class="status">Loading attractions…</div>';
+    try{rideSetupData=await fetchParkRides(park);renderRideSetupList()}catch(e){list.innerHTML=`<div class="card">${esc(e.message)}</div>`}
+  }
+  function renderRideSetupList(){
+    const park=$('#rideSettingsPark')?.value||'mk',list=$('#rideSettingsList');if(!list)return;
+    const q=String($('#rideSettingsSearch')?.value||'').trim().toLowerCase();list.innerHTML='';
+    const rows=rideSetupData.filter(r=>!q||r.name.toLowerCase().includes(q)||displayRideName(park,r).toLowerCase().includes(q));
+    if(!rows.length){list.innerHTML='<div class="status">No matching attractions.</div>';return}
+    for(const r of rows){
+      const key=rideKey(r),eff=effectiveRideSetting(park,r),custom=customRideSetting(park,r),row=document.createElement('div');row.className='ride-setup-row';
+      row.innerHTML=`<div class="name">${esc(displayRideName(park,r))}</div><div class="ride-original">API name: ${esc(r.name)} • Current wait: ${esc(waitLabel(r))}</div><input class="field renameRide" type="text" maxlength="80" value="${esc(eff.displayName||'')}" placeholder="Leave blank to use API name"><label class="omit-line"><input class="omitRide" type="checkbox" ${eff.omitted?'checked':''}> Omit from rotating wait-times overlay</label><div class="ride-setup-actions"><button class="bigbtn play saveRide">SAVE</button><button class="bigbtn secondary resetRide">RESET</button></div>`;
+      row.querySelector('.saveRide').onclick=()=>{cmd({action:'rideSettingSet',park,key,displayName:row.querySelector('.renameRide').value,omitted:row.querySelector('.omitRide').checked});note('Ride setting saved')};
+      row.querySelector('.resetRide').onclick=()=>{cmd({action:'rideSettingReset',park,key});setTimeout(()=>{renderRideSetupList();loadTimerRides()},160);note('Restored default')};
+      list.appendChild(row);
+    }
+  }
+  async function loadTimerRides(){
+    const park=selectedPark(),sel=$('#timerRide');if(!sel)return;
+    if(park==='springs'){timerRideData=[];sel.innerHTML='<option value="__custom__">Custom / Other line</option>';sel.value='__custom__';syncTimerCustomField();return}
+    const previous=sel.value;sel.innerHTML='<option value="">Loading rides…</option>';
+    try{
+      const all=await fetchParkRides(park);timerRideData=all.filter(r=>!effectiveRideSetting(park,r).omitted);
+      sel.innerHTML=timerRideData.map(r=>`<option value="${esc(rideKey(r))}">${esc(displayRideName(park,r))} • ${esc(waitLabel(r))}</option>`).join('')+'<option value="__custom__">Custom / Other line</option>';
+      const stored=latestState.lineTimer?.park===park?latestState.lineTimer?.rideKey:'';
+      if(timerRideData.some(r=>rideKey(r)===(stored||previous)))sel.value=stored||previous;else if(timerRideData.length)sel.value=rideKey(timerRideData[0]);else sel.value='__custom__';
+      syncTimerCustomField();configureTimerSelection();
+    }catch(e){timerRideData=[];sel.innerHTML='<option value="__custom__">Custom / Other line</option>';sel.value='__custom__';syncTimerCustomField();note('Could not refresh timer rides')}
+  }
+  function selectedTimerRide(){const key=$('#timerRide')?.value||'';return timerRideData.find(r=>rideKey(r)===key)||null}
+  function syncTimerCustomField(){const custom=$('#timerRide')?.value==='__custom__',input=$('#timerName');if(input){input.style.display=custom?'block':'none';if(custom&&document.activeElement!==input&&latestState.lineTimer?.rideKey==='')input.value=latestState.lineTimer?.name||''}}
+  function configureTimerSelection(){
+    const park=selectedPark(),r=selectedTimerRide(),custom=$('#timerRide')?.value==='__custom__';syncTimerCustomField();
+    if(custom){cmd({action:'timerConfigure',park,rideKey:'',name:$('#timerName').value||'Line Timer'});return}
+    if(r)cmd({action:'timerConfigure',park,rideKey:rideKey(r),name:displayRideName(park,r)});
+  }
+  async function startSelectedTimer(){
+    const park=selectedPark(),custom=$('#timerRide')?.value==='__custom__';
+    if(custom){cmd({action:'timerStart',park,rideKey:'',name:$('#timerName').value||'Line Timer',reportedWait:null,reportedStatus:''});return}
+    let r=selectedTimerRide();
+    try{const fresh=await fetchParkRides(park);const key=$('#timerRide').value;r=fresh.find(x=>rideKey(x)===key)||r;if(r)timerRideData=timerRideData.map(x=>rideKey(x)===key?r:x)}catch{}
+    if(!r){note('Choose a ride first');return}
+    cmd({action:'timerStart',park,rideKey:rideKey(r),name:displayRideName(park,r),reportedWait:typeof r.wait_time==='number'?r.wait_time:null,reportedStatus:r.is_open===false?'Closed':''});
+  }
+
   function renderParkCards(){
     const parkGrid=$('#parkGrid');if(!parkGrid)return;
     parkGrid.innerHTML=`<div class="media-card"><div class="info">
@@ -247,6 +336,10 @@
   }
 
   renderParkCards();
+  $('#rideSettingsPark').onchange=loadRideSetup;
+  $('#rideSettingsRefresh').onclick=loadRideSetup;
+  $('#rideSettingsSearch').oninput=renderRideSetupList;
+  loadTimerRides();
   $('#hideRideWait').onclick=()=>cmd({action:'hideRideWait'});
   $('#hideWeather').onclick=()=>cmd({action:'hideWeather'});
   $('#showRadar').onclick=()=>cmd({
@@ -257,18 +350,19 @@
     zoom:Number($('#radarZoom').value)
   });
   $('#hideRadar').onclick=()=>cmd({action:'hideRadar'});
-  $('#currentPark').onchange=()=>{cmd({action:'setCurrentPark',park:selectedPark()});renderState({currentPark:selectedPark()})};
-  $('#timerName').onchange=()=>cmd({action:'timerSetName',name:$('#timerName').value});
-  $('#timerStart').onclick=()=>{cmd({action:'timerSetName',name:$('#timerName').value});setTimeout(()=>cmd({action:'timerStart'}),100)};
+  $('#currentPark').onchange=()=>{cmd({action:'setCurrentPark',park:selectedPark()});renderState({currentPark:selectedPark()});loadTimerRides()};
+  $('#timerRide').onchange=configureTimerSelection;
+  $('#timerName').onchange=configureTimerSelection;
+  $('#timerStart').onclick=startSelectedTimer;
   $('#timerStop').onclick=()=>cmd({action:'timerStop'});
   $('#timerReset').onclick=()=>cmd({action:'timerReset'});
-  $('#timerShow').onclick=()=>{cmd({action:'timerSetName',name:$('#timerName').value});setTimeout(()=>cmd({action:'timerShow'}),100)};
+  $('#timerShow').onclick=()=>cmd({action:'timerShow'});
   $('#timerHide').onclick=()=>cmd({action:'timerHide'});
 
   $('#refresh').onclick=loadLibrary;
   $('#uploadBtn').onclick=async()=>{const f=$('#fileInput').files[0];if(!f){note('Choose a file first');return}if(f.size>75*1024*1024){note('File is over 75 MB');return}$('#uploadStatus').textContent=`Uploading ${f.name}…`;try{await api(`/api/media/upload?name=${encodeURIComponent(f.name)}`,{method:'POST',headers:{'content-type':f.type||'application/octet-stream','X-File-Name':f.name},body:f});$('#uploadStatus').textContent='Upload complete';$('#fileInput').value='';note('Media uploaded');loadLibrary();document.querySelector('[data-tab="library"]').click()}catch(e){$('#uploadStatus').textContent=e.message}};
   $('#showText').onclick=()=>cmd({action:'showText',value:$('#textValue').value,position:$('#textPos').value,color:$('#textColor').value,size:Number($('#textSize').value),font:$('#textFont').value,scroll:$('#textMode').value==='scroll',scrollSeconds:Number($('#textSpeed').value)});$('#hideText').onclick=()=>cmd({action:'hideText'});$('#clear').onclick=()=>cmd({action:'clear'});
-  document.querySelectorAll('.tab[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===b.dataset.tab))});
+  document.querySelectorAll('.tab[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===b.dataset.tab));if(b.dataset.tab==='rideSettings')loadRideSetup()});
   if(key){$('#login').classList.add('hidden');connect();loadLibrary()}
 })();
 </script>

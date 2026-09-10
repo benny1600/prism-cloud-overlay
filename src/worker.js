@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, lineTimer: { name: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, updatedAt: null });
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml",
@@ -50,6 +50,10 @@ function sanitizeTimerName(value) { return String(value || "").trim().slice(0, 8
 function normalizeTimer(timer) {
   return {
     name: sanitizeTimerName(timer?.name || ""),
+    rideKey: String(timer?.rideKey || "").slice(0, 120),
+    park: normalizePark(timer?.park || "mk"),
+    reportedWait: Number.isFinite(Number(timer?.reportedWait)) ? Math.max(0, Number(timer.reportedWait)) : null,
+    reportedStatus: String(timer?.reportedStatus || "").slice(0, 24),
     running: Boolean(timer?.running),
     visible: Boolean(timer?.visible),
     startedAt: Number.isFinite(Number(timer?.startedAt)) ? Number(timer.startedAt) : null,
@@ -57,9 +61,31 @@ function normalizeTimer(timer) {
     stoppedAt: Number.isFinite(Number(timer?.stoppedAt)) ? Number(timer.stoppedAt) : null
   };
 }
+function normalizeRideSettings(value) {
+  const src = value && typeof value === "object" ? value : {};
+  const out = {};
+  for (const park of PARK_KEYS) {
+    const parkSrc = src[park] && typeof src[park] === "object" ? src[park] : {};
+    const parkOut = {};
+    let count = 0;
+    for (const [rawKey, rawSetting] of Object.entries(parkSrc)) {
+      if (count >= 500) break;
+      const key = String(rawKey || "").slice(0, 140);
+      if (!key || !rawSetting || typeof rawSetting !== "object") continue;
+      parkOut[key] = {
+        displayName: sanitizeTimerName(rawSetting.displayName || ""),
+        omitted: Boolean(rawSetting.omitted)
+      };
+      count++;
+    }
+    if (Object.keys(parkOut).length) out[park] = parkOut;
+  }
+  return out;
+}
+
 function stateWithDefaults(state) {
   const s = state || {};
-  return { ...DEFAULT_STATE, ...s, currentPark: normalizePark(s.currentPark || DEFAULT_STATE.currentPark), lineTimer: normalizeTimer(s.lineTimer || DEFAULT_STATE.lineTimer) };
+  return { ...DEFAULT_STATE, ...s, currentPark: normalizePark(s.currentPark || DEFAULT_STATE.currentPark), rideSettings: normalizeRideSettings(s.rideSettings), lineTimer: normalizeTimer(s.lineTimer || DEFAULT_STATE.lineTimer) };
 }
 
 export class OverlayRoom extends DurableObject {
@@ -213,6 +239,7 @@ export class OverlayRoom extends DurableObject {
         break;
       case "showRideWait":
         next.rideWait = {
+          parkKey: normalizePark(command.parkKey || next.currentPark),
           park: (() => {
             const selected = normalizePark(command.parkKey || next.currentPark);
             const ids = { mk: 6, epcot: 5, hs: 7, ak: 8 };
@@ -242,12 +269,62 @@ export class OverlayRoom extends DurableObject {
         };
         break;
       case "hideRadar": next.radar = null; break;
+      case "rideSettingSet": {
+        const park = normalizePark(command.park || next.currentPark);
+        const key = String(command.key || "").slice(0, 140);
+        if (!key) return json({ ok: false, error: "Missing ride key" }, { status: 400 });
+        const all = normalizeRideSettings(next.rideSettings);
+        const parkSettings = { ...(all[park] || {}) };
+        parkSettings[key] = {
+          displayName: sanitizeTimerName(command.displayName || ""),
+          omitted: Boolean(command.omitted)
+        };
+        next.rideSettings = { ...all, [park]: parkSettings };
+        break;
+      }
+      case "rideSettingReset": {
+        const park = normalizePark(command.park || next.currentPark);
+        const key = String(command.key || "").slice(0, 140);
+        const all = normalizeRideSettings(next.rideSettings);
+        const parkSettings = { ...(all[park] || {}) };
+        delete parkSettings[key];
+        const updated = { ...all };
+        if (Object.keys(parkSettings).length) updated[park] = parkSettings;
+        else delete updated[park];
+        next.rideSettings = updated;
+        break;
+      }
+      case "timerConfigure": {
+        const t = normalizeTimer(next.lineTimer);
+        if (!t.running) {
+          next.lineTimer = {
+            ...t,
+            name: sanitizeTimerName(command.name || ""),
+            rideKey: String(command.rideKey || "").slice(0, 120),
+            park: normalizePark(command.park || next.currentPark),
+            reportedWait: null,
+            reportedStatus: ""
+          };
+        }
+        break;
+      }
       case "timerSetName":
         next.lineTimer = { ...normalizeTimer(next.lineTimer), name: sanitizeTimerName(command.name) };
         break;
       case "timerStart": {
         const t = normalizeTimer(next.lineTimer);
-        next.lineTimer = t.running ? t : { ...t, running: true, startedAt: Date.now(), stoppedAt: null };
+        if (t.running) next.lineTimer = t;
+        else next.lineTimer = {
+          ...t,
+          name: sanitizeTimerName(command.name || t.name || ""),
+          rideKey: String(command.rideKey || t.rideKey || "").slice(0, 120),
+          park: normalizePark(command.park || t.park || next.currentPark),
+          reportedWait: Number.isFinite(Number(command.reportedWait)) ? Math.max(0, Number(command.reportedWait)) : null,
+          reportedStatus: String(command.reportedStatus || "").slice(0, 24),
+          running: true,
+          startedAt: Date.now(),
+          stoppedAt: null
+        };
         break;
       }
       case "timerStop": {
@@ -260,12 +337,12 @@ export class OverlayRoom extends DurableObject {
       }
       case "timerReset": {
         const t = normalizeTimer(next.lineTimer);
-        next.lineTimer = { ...t, running: false, startedAt: null, accumulatedMs: 0, stoppedAt: null };
+        next.lineTimer = { ...t, reportedWait: null, reportedStatus: "", running: false, startedAt: null, accumulatedMs: 0, stoppedAt: null };
         break;
       }
       case "timerShow": next.lineTimer = { ...normalizeTimer(next.lineTimer), visible: true }; break;
       case "timerHide": next.lineTimer = { ...normalizeTimer(next.lineTimer), visible: false }; break;
-      case "clear": next = { ...DEFAULT_STATE, currentPark: normalizePark(next.currentPark) }; break;
+      case "clear": next = { ...DEFAULT_STATE, currentPark: normalizePark(next.currentPark), rideSettings: normalizeRideSettings(next.rideSettings) }; break;
       default: return json({ ok: false, error: "Unknown action" }, { status: 400 });
     }
 

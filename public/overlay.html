@@ -88,7 +88,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 #lineTimer{position:absolute;display:none;pointer-events:none;left:50%;bottom:22px;transform:translateX(-50%);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 #lineTimer .timer-overlay-card{min-width:290px;max-width:560px;padding:12px 18px;border-radius:16px;background:rgba(8,12,18,.92);border:1px solid rgba(255,255,255,.15);box-shadow:0 10px 28px rgba(0,0,0,.45);color:#fff;text-align:center}
 #lineTimer .timer-name{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#lineTimer .timer-time{font-size:38px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:1px;margin-top:3px}
+#lineTimer .timer-reported{font-size:14px;font-weight:700;opacity:.88;margin-top:5px}#lineTimer .timer-time{font-size:38px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:1px;margin-top:8px}
 #lineTimer .timer-label{font-size:11px;opacity:.75;margin-top:4px;text-transform:uppercase;letter-spacing:.8px}
 #status{display:none;position:absolute;top:8px;left:8px;padding:5px 8px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:12px system-ui,sans-serif}
 </style>
@@ -145,13 +145,13 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       </div>
     </div>
   </div>
-  <div id="lineTimer"><div class="timer-overlay-card"><div id="lineTimerName" class="timer-name">Line Timer</div><div id="lineTimerTime" class="timer-time">00:00:00</div><div id="lineTimerLabel" class="timer-label">Time in Line</div></div></div>
+  <div id="lineTimer"><div class="timer-overlay-card"><div id="lineTimerName" class="timer-name">Line Timer</div><div id="lineTimerReported" class="timer-reported">Reported Wait: —</div><div id="lineTimerTime" class="timer-time">00:00:00</div><div id="lineTimerLabel" class="timer-label">Our Wait</div></div></div>
   <div id="status"></div>
 </div>
 <script>
 (() => {
   const q=new URLSearchParams(location.search), room=q.get('room')||'default', debug=q.get('debug')==='1';
-  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), radar=document.querySelector('#radar'), radarTitle=document.querySelector('#radarTitle'), radarTime=document.querySelector('#radarTime'), radarBase=document.querySelector('#radarBase'), radarLayer=document.querySelector('#radarLayer'), lineTimer=document.querySelector('#lineTimer'), lineTimerName=document.querySelector('#lineTimerName'), lineTimerTime=document.querySelector('#lineTimerTime'), lineTimerLabel=document.querySelector('#lineTimerLabel'), status=document.querySelector('#status');
+  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), radar=document.querySelector('#radar'), radarTitle=document.querySelector('#radarTitle'), radarTime=document.querySelector('#radarTime'), radarBase=document.querySelector('#radarBase'), radarLayer=document.querySelector('#radarLayer'), lineTimer=document.querySelector('#lineTimer'), lineTimerName=document.querySelector('#lineTimerName'), lineTimerReported=document.querySelector('#lineTimerReported'), lineTimerTime=document.querySelector('#lineTimerTime'), lineTimerLabel=document.querySelector('#lineTimerLabel'), status=document.querySelector('#status');
   let ws,retry=1000,currentVideoSrc=''; const timers=new Map(); if(debug)status.style.display='block';
   let rideItems=[],rideIndex=0,rideCycleTimer=null,rideRefreshTimer=null,rideConfigKey='';
   let weatherRefreshTimer=null,weatherConfigKey='';
@@ -228,23 +228,31 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
   }
 
 
-  const OMITTED_RIDES=new Set([
-    "A Pirate's Adventure ~ Treasures of the Seven Seas",
-    "Main Street Vehicles",
-    "Casey Jr. Splash 'N' Soak Station"
-  ]);
-  const RIDE_ALIASES={
-    "Expedition Everest - Legend of the Forbidden Mountain":"Expedition Everest",
-    "Millennium Falcon: Smugglers Run":"Smugglers Run",
-    "Journey of Water, Inspired by Moana":"Moana – Journey of Water"
+  const BASE_RIDE_DEFAULTS={
+    mk:{
+      "name:A Pirate's Adventure ~ Treasures of the Seven Seas":{displayName:'',omitted:true},
+      "name:Main Street Vehicles":{displayName:'',omitted:true},
+      "name:Casey Jr. Splash 'N' Soak Station":{displayName:'',omitted:true}
+    },
+    epcot:{"name:Journey of Water, Inspired by Moana":{displayName:'Moana – Journey of Water',omitted:false}},
+    hs:{"name:Millennium Falcon: Smugglers Run":{displayName:'Smugglers Run',omitted:false}},
+    ak:{"name:Expedition Everest - Legend of the Forbidden Mountain":{displayName:'Expedition Everest',omitted:false}}
   };
+  let rideSettingsState={},rideSettingsSignature='';
+  function rideKey(r){return r?.id!=null?`id:${r.id}`:`name:${r?.name||''}`}
+  function effectiveRideSetting(park,r){
+    const custom=rideSettingsState?.[park]?.[rideKey(r)]||rideSettingsState?.[park]?.[`name:${r?.name||''}`];
+    return custom||BASE_RIDE_DEFAULTS?.[park]?.[`name:${r?.name||''}`]||{displayName:'',omitted:false};
+  }
 
-  function rideList(data){
+  function rideList(data,park){
     const out=[];
     for(const land of (data?.lands||[])){
       for(const r of (land.rides||[])){
-        if(!r?.name||OMITTED_RIDES.has(r.name))continue;
-        out.push(r);
+        if(!r?.name)continue;
+        const setting=effectiveRideSetting(park,r);
+        if(setting.omitted)continue;
+        out.push({...r,_displayName:(setting.displayName||r.name).trim()||r.name});
       }
     }
     return out;
@@ -258,7 +266,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     const r=rideItems[rideIndex % rideItems.length];
     rideWait.style.display='block';
     rideWait.className='';
-    rideName.textContent=RIDE_ALIASES[r.name]||r.name;
+    rideName.textContent=r._displayName||r.name;
     const raw=typeof r.wait_time==='number'?r.wait_time:null;
     rideTime.textContent=raw!==null?`${raw} min`:(r.is_open!==false?'—':'Closed');
     if(raw!==null){
@@ -278,7 +286,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       const r=await fetch(`/ride-waits-data?park=${encodeURIComponent(cfg.park)}`,{cache:'no-store'});
       if(!r.ok)throw new Error(`HTTP ${r.status}`);
       const data=await r.json();
-      rideItems=rideList(data);
+      rideItems=rideList(data,cfg.parkKey||({6:'mk',5:'epcot',7:'hs',8:'ak'}[cfg.park]||'mk'));
       rideIndex=0;
       renderRide();
     }catch(e){
@@ -300,7 +308,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     place(rideWait,cfg.position,cfg.size);
     rideWait.style.maxHeight='none';
 
-    const key=`${cfg.park}|${cfg.position}|${cfg.size}|${cfg.cycle}`;
+    const key=`${cfg.park}|${cfg.parkKey||''}|${cfg.position}|${cfg.size}|${cfg.cycle}|${rideSettingsSignature}`;
     if(key===rideConfigKey){
       renderRide();
       return;
@@ -584,7 +592,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
   let lineTimerState=null,lineTimerTick=null;
   function fmtLineTimer(ms){const t=Math.floor(Math.max(0,Number(ms||0))/1000);return [Math.floor(t/3600),Math.floor((t%3600)/60),t%60].map(v=>String(v).padStart(2,'0')).join(':')}
   function elapsedLineTimer(t){let ms=Math.max(0,Number(t?.accumulatedMs||0));if(t?.running&&t.startedAt)ms+=Math.max(0,Date.now()-Number(t.startedAt));return ms}
-  function renderLineTimer(){const t=lineTimerState;if(!t||!t.visible){lineTimer.style.display='none';return}lineTimer.style.display='block';lineTimerName.textContent=(t.name||'Line Timer').trim()||'Line Timer';lineTimerTime.textContent=fmtLineTimer(elapsedLineTimer(t));lineTimerLabel.textContent=t.running?'Time in Line':'Final Wait'}
+  function renderLineTimer(){const t=lineTimerState;if(!t||!t.visible){lineTimer.style.display='none';return}lineTimer.style.display='block';lineTimerName.textContent=(t.name||'Line Timer').trim()||'Line Timer';const rep=typeof t.reportedWait==='number'?`${t.reportedWait} min`:(t.reportedStatus||'—');lineTimerReported.textContent=`Reported Wait: ${rep}`;lineTimerTime.textContent=fmtLineTimer(elapsedLineTimer(t));lineTimerLabel.textContent=t.running?'Our Wait':'Final Actual Wait'}
   function applyLineTimer(t){lineTimerState=t||null;clearInterval(lineTimerTick);lineTimerTick=null;renderLineTimer();if(t?.visible&&t?.running)lineTimerTick=setInterval(renderLineTimer,250)}
 
   function applyText(t){
@@ -608,6 +616,9 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       if(video.src!==desired){currentVideoSrc=state.video.src;video.src=state.video.src;video.play().catch(()=>{})}
     } else {currentVideoSrc='';video.pause();video.removeAttribute('src');video.load();video.style.display='none'}
     applyText(state.text);
+    const newRideSettings=state.rideSettings||{};
+    const sig=JSON.stringify(newRideSettings);
+    if(sig!==rideSettingsSignature){rideSettingsState=newRideSettings;rideSettingsSignature=sig;rideConfigKey=''}
     applyRideWait(state.rideWait);
     applyWeather(state.weather);
     applyRadar(state.radar);

@@ -213,12 +213,29 @@ Added a new **Ride Waits** tab to the mobile controller.
 - Radar is an independent layer and can coexist with weather, ride waits, images, and text.
 
 
-## v0.14 — Current Park + Persistent Line Timer
-- One Current Park selector now drives Weather, Radar, and Ride Waits.
-- Current Park is stored in the Durable Object and survives Clear Screen.
-- Disney Springs disables Ride Waits but keeps Weather and Radar.
-- Parks controls are simplified to one shared set instead of one card per park.
-- Added Line Timer with optional attraction name and START / STOP / RESET / SHOW / HIDE.
-- Timing and visibility are independent.
-- Timer uses a stored start timestamp and accumulated milliseconds so controller refreshes do not lose the active queue time.
-- A stopped visible timer displays Final Wait until reset.
+## v0.15 — Ride Setup + Timer Ride Comparison
+
+### Ride Setup tab
+- New phone-friendly **Ride Setup** tab.
+- Choose Magic Kingdom, EPCOT, Hollywood Studios, or Animal Kingdom.
+- Loads the current Queue-Times attraction list for that park.
+- Each attraction can be:
+  - renamed for display
+  - omitted from the rotating Ride Waits overlay
+  - reset back to the built-in/default behavior
+- Settings are stored in the Durable Object room state and broadcast to every overlay/controller using that room.
+- Existing built-in omissions and aliases remain as defaults, but can now be overridden from the controller.
+- Ride configuration survives **Clear Screen**.
+
+### Line Timer integration
+- The timer now has a ride/attraction dropdown populated from the current park's live Queue-Times data.
+- Renamed rides use the custom display name.
+- Omitted rides are excluded from the timer ride picker.
+- A **Custom / Other line** option remains available for queues that are not in Queue-Times.
+- When START is pressed, the controller refreshes that attraction's live Queue-Times value and stores it as a snapshot.
+- The timer overlay shows:
+  - attraction name
+  - **Reported Wait** at the moment START was pressed
+  - **Our Wait** live stopwatch underneath
+- STOP freezes the actual wait and labels it **Final Actual Wait**.
+- Timing remains persistent through controller reloads/phone screen changes because the start timestamp is stored in the Durable Object.
