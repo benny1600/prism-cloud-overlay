@@ -393,3 +393,14 @@ Each image asset now has an **Animation** dropdown:
 No animation, Pulse, Jiggle, Bounce, Wiggle, Float, Heartbeat, and Spin.
 
 The effect is chosen when SHOW is pressed and remains part of that image's active cloud state. It works with timed images and Stay On graphics, and multiple visible images may use different effects. Existing position, size, and duration controls remain unchanged.
+
+
+## v0.28 — Animation Positioning Fix
+
+Fixed image animations at Bottom, Top, Left, Right, and corner positions.
+
+The overlay now uses two layers for each graphic:
+- an outer shell handles position and size
+- the inner image handles Pulse/Jiggle/Bounce/Wiggle/Float/Heartbeat/Spin
+
+This prevents CSS animation transforms from overriding the transforms used to position a graphic at bottom-center and other anchored locations.
