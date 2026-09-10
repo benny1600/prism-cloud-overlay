@@ -338,12 +338,16 @@
       <div class="meta">These controls use Current Park above.</div>
       <div class="meta" style="margin-top:10px"><strong>Ride Waits</strong></div>
       <div class="settings"><select class="field" id="ridePos">${positionOptions('bottom')}</select><select class="field" id="rideSize"><option value="2">2% size</option><option value="3">3% size</option><option value="5">5% size</option><option value="7">7% size</option><option value="10">10% size</option><option value="15">15% size</option><option value="20" selected>20% size</option><option value="30">30% size</option><option value="40">40% size</option><option value="50">50% size</option><option value="60">60% size</option><option value="75">75% size</option></select></div>
-      <div class="settings"><select class="field" id="rideCycle"><option value="5">5 sec per ride</option><option value="10" selected>10 sec per ride</option><option value="15">15 sec per ride</option><option value="20">20 sec per ride</option><option value="30">30 sec per ride</option></select><button id="currentRideShow" class="bigbtn play">SHOW WAITS</button></div>
+      <div class="settings"><select class="field" id="rideCycle"><option value="5">5 sec per ride</option><option value="10" selected>10 sec per ride</option><option value="15">15 sec per ride</option><option value="20">20 sec per ride</option><option value="30">30 sec per ride</option></select><select id="waitDisplayMode" class="field" style="margin-bottom:8px">
+            <option value="card" selected>Card</option>
+            <option value="ticker">Ticker</option>
+          </select>
+          <button id="currentRideShow" class="bigbtn play">SHOW WAITS</button></div>
       <div class="meta" style="margin-top:10px"><strong>Weather</strong></div>
       <div class="settings"><select class="field" id="weatherPos">${positionOptions('top-right')}</select><select class="field" id="weatherSize"><option value="10">10% size</option><option value="15">15% size</option><option value="20">20% size</option><option value="25">25% size</option><option value="30">30% size</option><option value="40" selected>40% size</option><option value="50">50% size</option><option value="60">60% size</option><option value="75">75% size</option><option value="100">100% size</option></select></div>
       <div class="settings"><select class="field" id="weatherUnit"><option value="f" selected>Fahrenheit</option><option value="c">Celsius</option></select><button id="currentWeatherShow" class="bigbtn play">SHOW WEATHER</button></div>
     </div></div>`;
-    $('#currentRideShow').onclick=()=>{const p=selectedPark();if(p==='springs'){note('Ride Waits are unavailable at Disney Springs');return}cmd({action:'showRideWait',parkKey:p,park:PARK_IDS[p],position:$('#ridePos').value,size:Number($('#rideSize').value),cycle:Number($('#rideCycle').value)})};
+    $('#currentRideShow').onclick=()=>{const p=selectedPark();if(p==='springs'){note('Ride Waits are unavailable at Disney Springs');return}cmd({action:'showRideWait', displayMode:($('#waitDisplayMode')?.value||'card'),parkKey:p,park:PARK_IDS[p],position:$('#ridePos').value,size:Number($('#rideSize').value),cycle:Number($('#rideCycle').value)})};
     $('#currentWeatherShow').onclick=()=>cmd({action:'showWeather',park:selectedPark(),position:$('#weatherPos').value,size:Number($('#weatherSize').value),unit:$('#weatherUnit').value});
   }
 

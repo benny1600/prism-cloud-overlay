@@ -254,3 +254,19 @@ Added a new **Ride Waits** tab to the mobile controller.
   - Disney Springs
 - Disney Springs falls back to **Custom / Other line**, since Queue-Times ride data is not used there.
 - Starting/configuring a timer stores the selected timer park with the timer state.
+
+
+## v0.17 — Ride Wait Times Card / Ticker Mode
+
+- Added a **Display Mode** selector for Ride Wait Times:
+  - **Card** — existing rotating ride card behavior.
+  - **Ticker** — continuous horizontal scrolling list of ride names and wait times.
+- Ticker uses the same selected Current Park and Queue-Times data.
+- Existing wait-time colors remain:
+  - 30 minutes or less: green
+  - 31–60 minutes: yellow
+  - over 60 minutes: red
+- Existing Wait Size and Cycle controls are reused:
+  - Size adjusts ticker text scale.
+  - Cycle controls ticker scrolling speed.
+- Hide Ride Waits hides either display style.

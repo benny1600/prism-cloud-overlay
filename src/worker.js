@@ -247,6 +247,7 @@ export class OverlayRoom extends DurableObject {
           })(),
           position: ["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position || "")) ? String(command.position) : "bottom",
           size: Math.max(2, Math.min(75, Number(command.size || 20))),
+          displayMode: ["card","ticker"].includes(String(command.displayMode || "").toLowerCase()) ? String(command.displayMode).toLowerCase() : "card",
           cycle: Math.max(3, Math.min(60, Number(command.cycle || 10)))
         };
         break;

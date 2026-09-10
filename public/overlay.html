@@ -90,6 +90,18 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 #lineTimer .timer-name{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #lineTimer .timer-reported{font-size:14px;font-weight:700;opacity:.88;margin-top:5px}#lineTimer .timer-time{font-size:38px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:1px;margin-top:8px}
 #lineTimer .timer-label{font-size:11px;opacity:.75;margin-top:4px;text-transform:uppercase;letter-spacing:.8px}
+
+#rideTicker{position:absolute;display:none;pointer-events:none;left:0;right:0;bottom:18px;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+#rideTicker .ticker-shell{position:relative;width:100%;overflow:hidden;background:rgba(8,12,18,.92);border-top:1px solid rgba(255,255,255,.15);border-bottom:1px solid rgba(255,255,255,.15);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#rideTicker .ticker-track{display:inline-flex;align-items:center;gap:34px;white-space:nowrap;padding:10px 0;will-change:transform;animation:rideTickerScroll 36s linear infinite}
+#rideTicker .ticker-item{display:inline-flex;align-items:center;gap:8px;font-weight:750;font-size:22px}
+#rideTicker .ticker-wait{font-weight:900}
+#rideTicker .ticker-wait.green{color:#67d96f}
+#rideTicker .ticker-wait.yellow{color:#ffd54f}
+#rideTicker .ticker-wait.red{color:#ff6b6b}
+#rideTicker .ticker-credit{font-size:11px;opacity:.65;margin-left:10px}
+@keyframes rideTickerScroll{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+
 #status{display:none;position:absolute;top:8px;left:8px;padding:5px 8px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:12px system-ui,sans-serif}
 </style>
 </head>
@@ -146,12 +158,17 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     </div>
   </div>
   <div id="lineTimer"><div class="timer-overlay-card"><div id="lineTimerName" class="timer-name">Line Timer</div><div id="lineTimerReported" class="timer-reported">Reported Wait: —</div><div id="lineTimerTime" class="timer-time">00:00:00</div><div id="lineTimerLabel" class="timer-label">Our Wait</div></div></div>
+  <div id="rideTicker">
+    <div class="ticker-shell">
+      <div id="rideTickerTrack" class="ticker-track"></div>
+    </div>
+  </div>
   <div id="status"></div>
 </div>
 <script>
 (() => {
   const q=new URLSearchParams(location.search), room=q.get('room')||'default', debug=q.get('debug')==='1';
-  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), radar=document.querySelector('#radar'), radarTitle=document.querySelector('#radarTitle'), radarTime=document.querySelector('#radarTime'), radarBase=document.querySelector('#radarBase'), radarLayer=document.querySelector('#radarLayer'), lineTimer=document.querySelector('#lineTimer'), lineTimerName=document.querySelector('#lineTimerName'), lineTimerReported=document.querySelector('#lineTimerReported'), lineTimerTime=document.querySelector('#lineTimerTime'), lineTimerLabel=document.querySelector('#lineTimerLabel'), status=document.querySelector('#status');
+  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), radar=document.querySelector('#radar'), radarTitle=document.querySelector('#radarTitle'), radarTime=document.querySelector('#radarTime'), radarBase=document.querySelector('#radarBase'), radarLayer=document.querySelector('#radarLayer'), lineTimer=document.querySelector('#lineTimer'), lineTimerName=document.querySelector('#lineTimerName'), lineTimerReported=document.querySelector('#lineTimerReported'), lineTimerTime=document.querySelector('#lineTimerTime'), lineTimerLabel=document.querySelector('#lineTimerLabel'), rideTicker=document.querySelector('#rideTicker'), rideTickerTrack=document.querySelector('#rideTickerTrack'), status=document.querySelector('#status');
   let ws,retry=1000,currentVideoSrc=''; const timers=new Map(); if(debug)status.style.display='block';
   let rideItems=[],rideIndex=0,rideCycleTimer=null,rideRefreshTimer=null,rideConfigKey='';
   let weatherRefreshTimer=null,weatherConfigKey='';
@@ -281,11 +298,83 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     clearInterval(rideRefreshTimer); rideRefreshTimer=null;
   }
 
+  function waitColorClass(minutes){
+    const n=Number(minutes);
+    if(!Number.isFinite(n))return '';
+    if(n<=30)return 'green';
+    if(n<=60)return 'yellow';
+    return 'red';
+  }
+
+  function renderRideTicker(rides,cfg){
+    if(!rideTicker||!rideTickerTrack)return;
+    const usable=(Array.isArray(rides)?rides:[]).filter(r=>r && r.name);
+    if(!usable.length){
+      rideTicker.style.display='none';
+      rideTickerTrack.replaceChildren();
+      return;
+    }
+
+    rideTickerTrack.replaceChildren();
+    const frag=document.createDocumentFragment();
+    usable.forEach((r,i)=>{
+      const item=document.createElement('span');
+      item.className='ticker-item';
+
+      const name=document.createElement('span');
+      name.textContent=r.name;
+
+      const wait=document.createElement('span');
+      const mins=Number(r.wait_time);
+      wait.className='ticker-wait '+waitColorClass(mins);
+      wait.textContent=Number.isFinite(mins)?`${mins} min`:(r.is_open===false?'Closed':'--');
+
+      item.append(name,wait);
+      frag.appendChild(item);
+
+      if(i===usable.length-1){
+        const credit=document.createElement('span');
+        credit.className='ticker-credit';
+        credit.textContent='Wait times via Queue-Times';
+        frag.appendChild(credit);
+      }
+    });
+    rideTickerTrack.appendChild(frag);
+
+    const size=Math.max(2,Math.min(75,Number(cfg?.size||20)));
+    const font=Math.max(12,Math.round(22*(size/20)));
+    rideTickerTrack.querySelectorAll('.ticker-item').forEach(el=>el.style.fontSize=`${font}px`);
+
+    // Cycle setting doubles as ticker speed: lower cycle = faster, higher = slower.
+    const cycle=Math.max(3,Math.min(60,Number(cfg?.cycle||10)));
+    const duration=Math.max(18,Math.min(70,cycle*3.6));
+    rideTickerTrack.style.animationDuration=`${duration}s`;
+
+    rideTicker.style.display='block';
+  }
+
+  function hideRideTicker(){
+    if(!rideTicker)return;
+    rideTicker.style.display='none';
+    if(rideTickerTrack)rideTickerTrack.replaceChildren();
+  }
+
+
   async function refreshRideWait(cfg){
     try{
       const r=await fetch(`/ride-waits-data?park=${encodeURIComponent(cfg.park)}`,{cache:'no-store'});
       if(!r.ok)throw new Error(`HTTP ${r.status}`);
       const data=await r.json();
+      if((cfg?.displayMode||'card')==='ticker'){
+        const tickerRides=[];
+        const groups=Array.isArray(data?.lands)?data.lands:[];
+        for(const land of groups){
+          for(const ride of (Array.isArray(land?.rides)?land.rides:[])){
+            if(ride && ride.name && !OMIT_RIDES?.has?.(ride.name)) tickerRides.push(ride);
+          }
+        }
+        renderRideTicker(tickerRides,cfg);
+      } else hideRideTicker();
       rideItems=rideList(data,cfg.parkKey||({6:'mk',5:'epcot',7:'hs',8:'ak'}[cfg.park]||'mk'));
       rideIndex=0;
       renderRide();
@@ -297,6 +386,16 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
   }
 
   function applyRideWait(cfg){
+    if(!cfg){
+      hideRideTicker();
+    } else if((cfg.displayMode||'card')==='ticker'){
+      // Card visibility is suppressed while ticker mode is active.
+      const rideCard=document.querySelector('#rideWait');
+      if(rideCard)rideCard.style.display='none';
+    } else {
+      hideRideTicker();
+    }
+
     if(!cfg){
       rideConfigKey='';
       rideItems=[];
