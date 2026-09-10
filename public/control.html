@@ -23,14 +23,14 @@
 
 <section id="library" class="panel active">
   <div class="row" style="margin-bottom:10px"><button id="refresh" class="tab">Refresh</button><div id="count" class="status"></div></div>
+  <div class="media-search" style="margin-bottom:10px">
+    <input id="imageSearch" class="field" type="search" placeholder="Search images…" autocomplete="off" />
+  </div>
   <div id="libraryGrid" class="library"></div>
 </section>
 
 <section id="upload" class="panel">
   <div class="uploadbox"><h2>Add media</h2><p>Images, GIFs, MP4/WebM video, or audio. Recommended mobile limit: 75 MB per file.</p><input id="fileInput" type="file" accept="image/*,video/mp4,video/webm,audio/*"><button id="uploadBtn" class="bigbtn play" style="width:100%">UPLOAD TO CLOUD</button><div id="uploadStatus" class="status" style="margin-top:10px"></div></div>
-      <div class="media-search" style="margin:10px 0">
-        <input id="imageSearch" class="field" type="search" placeholder="Search images…" autocomplete="off" />
-      </div>
 
 </section>
 
@@ -209,11 +209,24 @@
   const fmt=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
   function esc(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
   async function loadLibrary(){
-    grid.innerHTML='<div class="status">Loading…</div>';try{const d=await api('/api/media/list');$('#count').textContent=`${d.items.length} item${d.items.length===1?'':'s'}`;grid.innerHTML='';if(!d.items.length){grid.innerHTML='<div class="card">No media yet. Open Upload to add your first graphic or video.</div>';return}d.items.forEach(renderCard)}catch(e){grid.innerHTML=`<div class="card">${esc(e.message)}</div>`}
+    grid.innerHTML='<div class="status">Loading…</div>';
+    try{
+      const d=await api('/api/media/list');
+      $('#count').textContent=`${d.items.length} item${d.items.length===1?'':'s'}`;
+      grid.innerHTML='';
+      if(!d.items.length){
+        grid.innerHTML='<div class="card">No media yet. Open Upload to add your first graphic or video.</div>';
+        return;
+      }
+      d.items.forEach(renderCard);
+      filterImageLibrary();
+    }catch(e){
+      grid.innerHTML=`<div class="card">${esc(e.message)}</div>`;
+    }
   }
   function renderCard(item){
-    const card=document.createElement('div');card.className='media-card';
-    const prev=item.kind==='image'?`<img loading="lazy" src="${item.url}" alt="">`:item.kind==='video'?`<video preload="metadata" muted src="${item.url}"></video>`:`<div>${item.kind.toUpperCase()}</div>`;
+    const card=document.createElement('div');card.className='media-card';card.dataset.name=item.name||'';
+    const prev=item.kind==='image'?`<img loading="eager" decoding="async" src="${item.url}" alt="${esc(item.name)}">`:item.kind==='video'?`<video preload="metadata" muted src="${item.url}"></video>`:`<div>${item.kind.toUpperCase()}</div>`;
 
     const imageControls=item.kind==='image'
       ? `<div class="settings">
@@ -229,6 +242,20 @@
       : '';
 
     card.innerHTML=`<div class="preview">${prev}</div><div class="info"><div class="name" title="${esc(item.name)}">${esc(item.name)}</div><div class="meta">${esc(item.kind)} • ${fmt(item.size)}</div><div class="settings"><select class="field pos"><option value="center">Center</option><option value="top">Top center</option><option value="bottom">Bottom center</option><option value="left">Left center</option><option value="right">Right center</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option></select><span></span></div>${imageControls}<div class="actions"><button class="play show">${item.kind==='video'?'PLAY':'SHOW'}</button><button class="secondary rename">RENAME</button><button class="danger delete">DELETE</button><button class="secondary hide">HIDE/STOP</button></div></div>`;
+
+
+    if(item.kind==='image'){
+      const thumb=card.querySelector('.preview img');
+      if(thumb){
+        let retried=false;
+        thumb.onerror=()=>{
+          if(retried)return;
+          retried=true;
+          const join=item.url.includes('?')?'&':'?';
+          thumb.src=`${item.url}${join}thumbRetry=${Date.now()}`;
+        };
+      }
+    }
 
     const pos=card.querySelector('.pos'),dur=card.querySelector('.dur'),size=card.querySelector('.size');
 
@@ -400,20 +427,17 @@
 
   function filterImageLibrary(){
     const q=($('#imageSearch')?.value||'').trim().toLowerCase();
-    const list=document.querySelector('#mediaList')||document.querySelector('#assetList')||document.querySelector('#imageList')||document.querySelector('#libraryList');
+    const list=$('#libraryGrid');
     if(!list)return;
 
-    // Filter only individual media entries, not the entire tab.
-    const items=[...list.children];
-    items.forEach(item=>{
-      const haystack=(
-        item.dataset?.name ||
-        item.getAttribute?.('data-key') ||
-        item.textContent ||
-        ''
-      ).toLowerCase();
-      item.style.display=!q || haystack.includes(q) ? '' : 'none';
+    const cards=[...list.querySelectorAll('.media-card')];
+    cards.forEach(card=>{
+      const haystack=(card.dataset.name||card.querySelector('.name')?.textContent||'').toLowerCase();
+      card.style.display=!q || haystack.includes(q) ? '' : 'none';
     });
+
+    const visible=cards.filter(card=>card.style.display!=='none').length;
+    if(q && $('#count'))$('#count').textContent=`${visible} match${visible===1?'':'es'}`;
   }
 
 

@@ -361,3 +361,18 @@ This version removes the ambiguous shared wait-display command path.
   - nothing is deleted or renamed
   - no extra server requests are needed while typing
 - Clearing the search field shows the full image library again.
+
+
+## v0.25 — Library Search + Thumbnail Reliability Fix
+
+- Fixed the search bar appearing in the wrong tab.
+- **Search images…** now appears directly in the **Library** tab above the asset grid.
+- Search now filters the actual `#libraryGrid` media cards.
+- Search matches the asset display name, case-insensitively.
+- The count changes to show matching results while a search is active.
+- Search remains applied after refreshing/reloading the library.
+
+Thumbnail reliability:
+- Image thumbnails now use eager loading instead of browser lazy-loading.
+- Added one automatic retry with a cache-busting URL if a thumbnail fails to load on the first attempt.
+- This only affects controller thumbnails; it does not duplicate or modify R2 files.
