@@ -362,8 +362,10 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     const font=Math.max(12,Math.round(22*(size/20)));
     rideTickerTrack.querySelectorAll('.ticker-item').forEach(el=>el.style.fontSize=`${font}px`);
 
-    const cycle=Math.max(3,Math.min(60,Number(cfg?.cycle||10)));
-    const duration=Math.max(18,Math.min(70,cycle*3.6));
+    const cycle=Math.max(3,Math.min(120,Number(cfg?.cycle||10)));
+    // In ticker mode this setting controls the time for one complete marquee loop.
+    // Longer selections genuinely slow the ticker instead of hitting the old 70-second cap.
+    const duration=Math.max(18,cycle*4);
     rideTickerTrack.style.animationDuration=`${duration}s`;
 
     // Restart animation cleanly whenever ticker contents/settings change.

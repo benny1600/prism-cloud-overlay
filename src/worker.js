@@ -258,7 +258,7 @@ export class OverlayRoom extends DurableObject {
           size: Math.max(2, Math.min(75, Number(command.size || 20))),
           displayMode: requestedMode,
           ticker: requestedMode === "ticker",
-          cycle: Math.max(3, Math.min(60, Number(command.cycle || 10)))
+          cycle: Math.max(3, Math.min(120, Number(command.cycle || 10)))
         };
         break;
       }

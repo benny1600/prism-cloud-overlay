@@ -308,3 +308,21 @@ This version removes the ambiguous shared wait-display command path.
 - Ticker begins with a park-name label such as `EPCOT Wait Times`.
 - Controller displays a confirmation toast indicating whether Card or Ticker was requested.
 - Controller also syncs the Display Mode selector from the cloud state when state returns.
+
+
+## v0.21 — Slower Wait Times / Ticker Speeds
+
+- Expanded **Cycle / Ticker Speed** choices:
+  - 5 sec
+  - 10 sec
+  - 15 sec
+  - 20 sec
+  - 30 sec
+  - 45 sec
+  - 60 sec
+  - 90 sec
+  - 120 sec
+- Removed the old ticker animation cap that prevented selections above roughly 20–30 seconds from becoming meaningfully slower.
+- Card mode still uses the selected value as the time each ride stays on screen.
+- Ticker mode uses the selected value to scale the overall marquee speed.
+- Worker now accepts values up to 120 seconds.
