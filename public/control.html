@@ -5,6 +5,7 @@
 <title>Mobile Overlay Control</title>
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0e0f12;color:#f6f7f9}button,input,select{font:inherit}main{max-width:900px;margin:auto;padding:14px 14px 90px}.top{position:sticky;top:0;z-index:20;background:rgba(14,15,18,.96);backdrop-filter:blur(8px);padding:10px 0}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.grow{flex:1}.status{font-size:13px;opacity:.75}.tabs{display:flex;gap:8px;margin-top:10px}.tab{padding:10px 14px;border-radius:12px;border:1px solid #30343b;background:#17191e;color:#fff}.tab.active{background:#f3f4f6;color:#111}.panel{display:none;margin-top:14px}.panel.active{display:block}.card{border:1px solid #2c3037;background:#15171b;border-radius:16px;padding:12px}.library{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}.media-card{border:1px solid #2b3037;border-radius:15px;background:#15171b;overflow:hidden}.preview{aspect-ratio:16/10;background:#090a0c;display:flex;align-items:center;justify-content:center;overflow:hidden}.preview img,.preview video{width:100%;height:100%;object-fit:contain}.info{padding:10px}.name{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:12px;opacity:.65;margin-top:3px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.actions button,.bigbtn{border:0;border-radius:12px;min-height:44px;font-weight:800}.play{background:#f4f5f7;color:#111}.secondary{background:#252932;color:#fff}.danger{background:#782a2a;color:#fff}.clear{position:fixed;z-index:30;bottom:12px;left:50%;transform:translateX(-50%);width:min(860px,calc(100% - 24px));min-height:58px;border:0;border-radius:16px;background:#c93b3b;color:white;font-weight:900;font-size:18px}.uploadbox{border:2px dashed #343942;border-radius:18px;padding:18px;text-align:center}.uploadbox input{width:100%;margin:10px 0}.field{width:100%;padding:10px;border-radius:11px;border:1px solid #353a43;background:#111318;color:white;font-size:13px}select.field{font-size:12px;padding:9px 7px}.settings{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}.login{position:fixed;inset:0;z-index:99;background:#0e0f12;display:flex;align-items:center;justify-content:center;padding:18px}.loginbox{width:min(420px,100%);border:1px solid #30343b;background:#15171b;border-radius:20px;padding:20px}.loginbox h1{margin-top:0}.hidden{display:none!important}.toast{position:fixed;z-index:120;top:14px;left:50%;transform:translateX(-50%);background:#242831;border:1px solid #3a404b;padding:10px 14px;border-radius:12px;display:none;max-width:90%}
+.current-park-card,.timer-card{margin-top:14px;padding:14px;border:1px solid #2c3037;border-radius:16px;background:#15171b}.current-park-card select,.timer-card input{width:100%;min-height:46px;font-size:16px}.timer-display{font-variant-numeric:tabular-nums;font-size:34px;font-weight:900;text-align:center;padding:10px 0}.timer-state{text-align:center;font-size:12px;opacity:.7}.timer-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:9px}.timer-actions.two{grid-template-columns:1fr 1fr}.timer-actions button{min-height:48px}
 </style>
 </head>
 <body>
@@ -35,6 +36,15 @@
   <div class="card">
     <h2 style="margin-top:0">Parks</h2>
     <p class="status">Ride waits and weather are independent overlay layers. You can show both at the same time.</p>
+
+    <div class="current-park-card">
+      <div class="name">Current Park</div>
+      <div class="meta">Weather, radar and ride waits use this selection.</div>
+      <select id="currentPark" class="field" style="margin-top:9px">
+        <option value="mk">Magic Kingdom</option><option value="epcot">EPCOT</option><option value="hs">Hollywood Studios</option><option value="ak">Animal Kingdom</option><option value="springs">Disney Springs</option>
+      </select>
+      <div id="currentParkNote" class="meta" style="margin-top:7px"></div>
+    </div>
     <div id="parkGrid" class="library" style="margin-top:12px"></div>
 
     <div class="media-card" style="margin-top:14px">
@@ -42,7 +52,7 @@
         <div class="name">Live Radar</div>
         <div class="meta">On-demand recent radar loop. Stops loading when hidden.</div>
         <div class="settings" style="margin-top:8px">
-          <select id="radarPark" class="field">
+          <select id="radarPark" class="field" style="display:none">
             <option value="wdw" selected>Walt Disney World</option>
             <option value="mk">Magic Kingdom</option>
             <option value="epcot">EPCOT</option>
@@ -84,6 +94,17 @@
       </div>
     </div>
 
+
+    <div class="timer-card">
+      <div class="name">Line Timer</div>
+      <div class="meta">Persistent queue stopwatch. Timing and on-screen visibility are independent.</div>
+      <input id="timerName" class="field" maxlength="80" placeholder="Attraction name (optional)" style="margin-top:10px">
+      <div id="timerDisplay" class="timer-display">00:00:00</div>
+      <div id="timerState" class="timer-state">Stopped • Hidden</div>
+      <div class="timer-actions"><button id="timerStart" class="bigbtn play">START</button><button id="timerStop" class="bigbtn secondary">STOP</button><button id="timerReset" class="bigbtn secondary">RESET</button></div>
+      <div class="timer-actions two"><button id="timerShow" class="bigbtn play">SHOW</button><button id="timerHide" class="bigbtn secondary">HIDE</button></div>
+    </div>
+
     <div class="settings" style="margin-top:12px">
       <button id="hideRideWait" class="bigbtn secondary">HIDE RIDE WAITS</button>
       <button id="hideWeather" class="bigbtn secondary">HIDE WEATHER</button>
@@ -107,9 +128,25 @@
   $('#loginBtn').onclick=unlock;$('#keyInput').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});$('#logout').onclick=lock;
   function connect(){
     try{ws?.close()}catch{};const proto=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}?role=control&key=${encodeURIComponent(key)}`);
-    ws.onopen=()=>{retry=1000;conn.textContent=`Connected • ${room}`};ws.onclose=e=>{if(!key)return;conn.textContent=e.code===1008?'Unauthorized':'Reconnecting…';setTimeout(connect,retry);retry=Math.min(retry*1.6,10000)};ws.onerror=()=>ws.close();
+    ws.onopen=()=>{retry=1000;conn.textContent=`Connected • ${room}`};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state')renderState(m.state||{})}catch{}};ws.onclose=e=>{if(!key)return;conn.textContent=e.code===1008?'Unauthorized':'Reconnecting…';setTimeout(connect,retry);retry=Math.min(retry*1.6,10000)};ws.onerror=()=>ws.close();
   }
   function cmd(payload){if(ws?.readyState===1)ws.send(JSON.stringify(payload));else note('Controller is reconnecting')}
+  let latestState={currentPark:'mk',lineTimer:{name:'',running:false,visible:false,startedAt:null,accumulatedMs:0}};
+  const PARK_IDS={mk:6,epcot:5,hs:7,ak:8};
+  function selectedPark(){return $('#currentPark')?.value||latestState.currentPark||'mk'}
+  function fmtElapsed(ms){const t=Math.floor(Math.max(0,Number(ms||0))/1000);return [Math.floor(t/3600),Math.floor((t%3600)/60),t%60].map(v=>String(v).padStart(2,'0')).join(':')}
+  function timerElapsed(t){let ms=Math.max(0,Number(t?.accumulatedMs||0));if(t?.running&&t.startedAt)ms+=Math.max(0,Date.now()-Number(t.startedAt));return ms}
+  function renderState(s){
+    if(s)latestState={...latestState,...s,lineTimer:{...latestState.lineTimer,...(s.lineTimer||{})}};
+    const park=latestState.currentPark||'mk';
+    if($('#currentPark')&&$('#currentPark').value!==park)$('#currentPark').value=park;
+    if($('#currentParkNote'))$('#currentParkNote').textContent=park==='springs'?'Ride Waits are unavailable at Disney Springs. Weather and Radar still work.':'';
+    const t=latestState.lineTimer||{};
+    if($('#timerName')&&document.activeElement!==$('#timerName'))$('#timerName').value=t.name||'';
+    if($('#timerDisplay'))$('#timerDisplay').textContent=fmtElapsed(timerElapsed(t));
+    if($('#timerState'))$('#timerState').textContent=`${t.running?'Running':'Stopped'} • ${t.visible?'On screen':'Hidden'}`;
+  }
+  setInterval(()=>renderState(),250);
   const fmt=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
   function esc(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
   async function loadLibrary(){
@@ -194,99 +231,19 @@
   }
 
   function renderParkCards(){
-    const parkGrid=$('#parkGrid');
-    if(!parkGrid)return;
-    parkGrid.innerHTML='';
-
-    for(const park of parks){
-      const card=document.createElement('div');
-      card.className='media-card';
-
-      const waitSection = park.waits ? `
-        <div class="meta" style="margin-top:8px"><strong>Ride Waits</strong></div>
-        <div class="settings">
-          <select class="field ride-pos">${positionOptions('bottom')}</select>
-          <select class="field ride-size">
-            <option value="2">2% size</option>
-            <option value="3">3% size</option>
-            <option value="5">5% size</option>
-            <option value="7">7% size</option>
-            <option value="10">10% size</option>
-            <option value="15">15% size</option>
-            <option value="20" selected>20% size</option>
-            <option value="30">30% size</option>
-            <option value="40">40% size</option>
-            <option value="50">50% size</option>
-            <option value="60">60% size</option>
-            <option value="75">75% size</option>
-          </select>
-        </div>
-        <div class="settings">
-          <select class="field ride-cycle">
-            <option value="5">5 sec per ride</option>
-            <option value="10" selected>10 sec per ride</option>
-            <option value="15">15 sec per ride</option>
-            <option value="20">20 sec per ride</option>
-            <option value="30">30 sec per ride</option>
-          </select>
-          <button class="bigbtn play ride-show">SHOW WAITS</button>
-        </div>` : '';
-
-      card.innerHTML=`
-        <div class="info">
-          <div class="name">${park.name}</div>
-          ${waitSection}
-          <div class="meta" style="margin-top:10px"><strong>Weather</strong></div>
-          <div class="settings">
-            <select class="field weather-pos">${positionOptions('top-right')}</select>
-            <select class="field weather-size">
-              <option value="10">10% size</option>
-              <option value="15">15% size</option>
-              <option value="20">20% size</option>
-              <option value="25">25% size</option>
-              <option value="30">30% size</option>
-              <option value="40" selected>40% size</option>
-              <option value="50">50% size</option>
-              <option value="60">60% size</option>
-              <option value="75">75% size</option>
-              <option value="100">100% size</option>
-            </select>
-          </div>
-          <div class="settings">
-            <select class="field weather-unit">
-              <option value="f" selected>Fahrenheit</option>
-              <option value="c">Celsius</option>
-            </select>
-            <button class="bigbtn play weather-show">SHOW WEATHER</button>
-          </div>
-        </div>`;
-
-      if(park.waits){
-        const pos=card.querySelector('.ride-pos');
-        const size=card.querySelector('.ride-size');
-        const cycle=card.querySelector('.ride-cycle');
-        card.querySelector('.ride-show').onclick=()=>cmd({
-          action:'showRideWait',
-          park:park.id,
-          position:pos.value,
-          size:Number(size.value),
-          cycle:Number(cycle.value)
-        });
-      }
-
-      const wpos=card.querySelector('.weather-pos');
-      const wsize=card.querySelector('.weather-size');
-      const wunit=card.querySelector('.weather-unit');
-      card.querySelector('.weather-show').onclick=()=>cmd({
-        action:'showWeather',
-        park:park.key,
-        position:wpos.value,
-        size:Number(wsize.value),
-        unit:wunit.value
-      });
-
-      parkGrid.appendChild(card);
-    }
+    const parkGrid=$('#parkGrid');if(!parkGrid)return;
+    parkGrid.innerHTML=`<div class="media-card"><div class="info">
+      <div class="name">Park Overlays</div>
+      <div class="meta">These controls use Current Park above.</div>
+      <div class="meta" style="margin-top:10px"><strong>Ride Waits</strong></div>
+      <div class="settings"><select class="field" id="ridePos">${positionOptions('bottom')}</select><select class="field" id="rideSize"><option value="2">2% size</option><option value="3">3% size</option><option value="5">5% size</option><option value="7">7% size</option><option value="10">10% size</option><option value="15">15% size</option><option value="20" selected>20% size</option><option value="30">30% size</option><option value="40">40% size</option><option value="50">50% size</option><option value="60">60% size</option><option value="75">75% size</option></select></div>
+      <div class="settings"><select class="field" id="rideCycle"><option value="5">5 sec per ride</option><option value="10" selected>10 sec per ride</option><option value="15">15 sec per ride</option><option value="20">20 sec per ride</option><option value="30">30 sec per ride</option></select><button id="currentRideShow" class="bigbtn play">SHOW WAITS</button></div>
+      <div class="meta" style="margin-top:10px"><strong>Weather</strong></div>
+      <div class="settings"><select class="field" id="weatherPos">${positionOptions('top-right')}</select><select class="field" id="weatherSize"><option value="10">10% size</option><option value="15">15% size</option><option value="20">20% size</option><option value="25">25% size</option><option value="30">30% size</option><option value="40" selected>40% size</option><option value="50">50% size</option><option value="60">60% size</option><option value="75">75% size</option><option value="100">100% size</option></select></div>
+      <div class="settings"><select class="field" id="weatherUnit"><option value="f" selected>Fahrenheit</option><option value="c">Celsius</option></select><button id="currentWeatherShow" class="bigbtn play">SHOW WEATHER</button></div>
+    </div></div>`;
+    $('#currentRideShow').onclick=()=>{const p=selectedPark();if(p==='springs'){note('Ride Waits are unavailable at Disney Springs');return}cmd({action:'showRideWait',parkKey:p,park:PARK_IDS[p],position:$('#ridePos').value,size:Number($('#rideSize').value),cycle:Number($('#rideCycle').value)})};
+    $('#currentWeatherShow').onclick=()=>cmd({action:'showWeather',park:selectedPark(),position:$('#weatherPos').value,size:Number($('#weatherSize').value),unit:$('#weatherUnit').value});
   }
 
   renderParkCards();
@@ -294,12 +251,19 @@
   $('#hideWeather').onclick=()=>cmd({action:'hideWeather'});
   $('#showRadar').onclick=()=>cmd({
     action:'showRadar',
-    park:$('#radarPark').value,
+    park:selectedPark(),
     position:$('#radarPos').value,
     size:Number($('#radarSize').value),
     zoom:Number($('#radarZoom').value)
   });
   $('#hideRadar').onclick=()=>cmd({action:'hideRadar'});
+  $('#currentPark').onchange=()=>{cmd({action:'setCurrentPark',park:selectedPark()});renderState({currentPark:selectedPark()})};
+  $('#timerName').onchange=()=>cmd({action:'timerSetName',name:$('#timerName').value});
+  $('#timerStart').onclick=()=>{cmd({action:'timerSetName',name:$('#timerName').value});setTimeout(()=>cmd({action:'timerStart'}),100)};
+  $('#timerStop').onclick=()=>cmd({action:'timerStop'});
+  $('#timerReset').onclick=()=>cmd({action:'timerReset'});
+  $('#timerShow').onclick=()=>{cmd({action:'timerSetName',name:$('#timerName').value});setTimeout(()=>cmd({action:'timerShow'}),100)};
+  $('#timerHide').onclick=()=>cmd({action:'timerHide'});
 
   $('#refresh').onclick=loadLibrary;
   $('#uploadBtn').onclick=async()=>{const f=$('#fileInput').files[0];if(!f){note('Choose a file first');return}if(f.size>75*1024*1024){note('File is over 75 MB');return}$('#uploadStatus').textContent=`Uploading ${f.name}…`;try{await api(`/api/media/upload?name=${encodeURIComponent(f.name)}`,{method:'POST',headers:{'content-type':f.type||'application/octet-stream','X-File-Name':f.name},body:f});$('#uploadStatus').textContent='Upload complete';$('#fileInput').value='';note('Media uploaded');loadLibrary();document.querySelector('[data-tab="library"]').click()}catch(e){$('#uploadStatus').textContent=e.message}};

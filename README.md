@@ -211,3 +211,14 @@ Added a new **Ride Waits** tab to the mobile controller.
 - Radar metadata refreshes every 10 minutes only while radar is active.
 - **HIDE RADAR** stops the animation, stops refresh polling, clears radar/base-map images, and hides the card.
 - Radar is an independent layer and can coexist with weather, ride waits, images, and text.
+
+
+## v0.14 — Current Park + Persistent Line Timer
+- One Current Park selector now drives Weather, Radar, and Ride Waits.
+- Current Park is stored in the Durable Object and survives Clear Screen.
+- Disney Springs disables Ride Waits but keeps Weather and Radar.
+- Parks controls are simplified to one shared set instead of one card per park.
+- Added Line Timer with optional attraction name and START / STOP / RESET / SHOW / HIDE.
+- Timing and visibility are independent.
+- Timer uses a stored start timestamp and accumulated milliseconds so controller refreshes do not lose the active queue time.
+- A stopped visible timer displays Final Wait until reset.

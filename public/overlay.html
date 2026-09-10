@@ -85,6 +85,11 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 }
 #radar .radar-foot{height:24px;display:flex;align-items:flex-end;justify-content:space-between;font-size:10px;color:#b0bec5;padding:0 3px}
 
+#lineTimer{position:absolute;display:none;pointer-events:none;left:50%;bottom:22px;transform:translateX(-50%);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+#lineTimer .timer-overlay-card{min-width:290px;max-width:560px;padding:12px 18px;border-radius:16px;background:rgba(8,12,18,.92);border:1px solid rgba(255,255,255,.15);box-shadow:0 10px 28px rgba(0,0,0,.45);color:#fff;text-align:center}
+#lineTimer .timer-name{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lineTimer .timer-time{font-size:38px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:1px;margin-top:3px}
+#lineTimer .timer-label{font-size:11px;opacity:.75;margin-top:4px;text-transform:uppercase;letter-spacing:.8px}
 #status{display:none;position:absolute;top:8px;left:8px;padding:5px 8px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:12px system-ui,sans-serif}
 </style>
 </head>
@@ -140,12 +145,13 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       </div>
     </div>
   </div>
+  <div id="lineTimer"><div class="timer-overlay-card"><div id="lineTimerName" class="timer-name">Line Timer</div><div id="lineTimerTime" class="timer-time">00:00:00</div><div id="lineTimerLabel" class="timer-label">Time in Line</div></div></div>
   <div id="status"></div>
 </div>
 <script>
 (() => {
   const q=new URLSearchParams(location.search), room=q.get('room')||'default', debug=q.get('debug')==='1';
-  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), radar=document.querySelector('#radar'), radarTitle=document.querySelector('#radarTitle'), radarTime=document.querySelector('#radarTime'), radarBase=document.querySelector('#radarBase'), radarLayer=document.querySelector('#radarLayer'), status=document.querySelector('#status');
+  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), radar=document.querySelector('#radar'), radarTitle=document.querySelector('#radarTitle'), radarTime=document.querySelector('#radarTime'), radarBase=document.querySelector('#radarBase'), radarLayer=document.querySelector('#radarLayer'), lineTimer=document.querySelector('#lineTimer'), lineTimerName=document.querySelector('#lineTimerName'), lineTimerTime=document.querySelector('#lineTimerTime'), lineTimerLabel=document.querySelector('#lineTimerLabel'), status=document.querySelector('#status');
   let ws,retry=1000,currentVideoSrc=''; const timers=new Map(); if(debug)status.style.display='block';
   let rideItems=[],rideIndex=0,rideCycleTimer=null,rideRefreshTimer=null,rideConfigKey='';
   let weatherRefreshTimer=null,weatherConfigKey='';
@@ -575,6 +581,12 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     },600000);
   }
 
+  let lineTimerState=null,lineTimerTick=null;
+  function fmtLineTimer(ms){const t=Math.floor(Math.max(0,Number(ms||0))/1000);return [Math.floor(t/3600),Math.floor((t%3600)/60),t%60].map(v=>String(v).padStart(2,'0')).join(':')}
+  function elapsedLineTimer(t){let ms=Math.max(0,Number(t?.accumulatedMs||0));if(t?.running&&t.startedAt)ms+=Math.max(0,Date.now()-Number(t.startedAt));return ms}
+  function renderLineTimer(){const t=lineTimerState;if(!t||!t.visible){lineTimer.style.display='none';return}lineTimer.style.display='block';lineTimerName.textContent=(t.name||'Line Timer').trim()||'Line Timer';lineTimerTime.textContent=fmtLineTimer(elapsedLineTimer(t));lineTimerLabel.textContent=t.running?'Time in Line':'Final Wait'}
+  function applyLineTimer(t){lineTimerState=t||null;clearInterval(lineTimerTick);lineTimerTick=null;renderLineTimer();if(t?.visible&&t?.running)lineTimerTick=setInterval(renderLineTimer,250)}
+
   function applyText(t){
     if(!t?.value){textInner.textContent='';text.style.display='none';return}
     textInner.textContent=t.value;text.style.display='block';
@@ -599,6 +611,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     applyRideWait(state.rideWait);
     applyWeather(state.weather);
     applyRadar(state.radar);
+    applyLineTimer(state.lineTimer);
   }
 
   video.addEventListener('ended',()=>{video.style.display='none';if(ws?.readyState===1)ws.send(JSON.stringify({type:'event',event:'videoEnded',src:currentVideoSrc}))});

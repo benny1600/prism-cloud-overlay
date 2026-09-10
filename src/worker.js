@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, lineTimer: { name: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, updatedAt: null });
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml",
@@ -41,6 +41,27 @@ function mediaKind(type = "") {
   return "other";
 }
 
+const PARK_KEYS = ["mk","epcot","hs","ak","springs"];
+function normalizePark(value) {
+  const p = String(value || "").toLowerCase();
+  return PARK_KEYS.includes(p) ? p : "mk";
+}
+function sanitizeTimerName(value) { return String(value || "").trim().slice(0, 80); }
+function normalizeTimer(timer) {
+  return {
+    name: sanitizeTimerName(timer?.name || ""),
+    running: Boolean(timer?.running),
+    visible: Boolean(timer?.visible),
+    startedAt: Number.isFinite(Number(timer?.startedAt)) ? Number(timer.startedAt) : null,
+    accumulatedMs: Math.max(0, Number(timer?.accumulatedMs || 0)),
+    stoppedAt: Number.isFinite(Number(timer?.stoppedAt)) ? Number(timer.stoppedAt) : null
+  };
+}
+function stateWithDefaults(state) {
+  const s = state || {};
+  return { ...DEFAULT_STATE, ...s, currentPark: normalizePark(s.currentPark || DEFAULT_STATE.currentPark), lineTimer: normalizeTimer(s.lineTimer || DEFAULT_STATE.lineTimer) };
+}
+
 export class OverlayRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -57,7 +78,7 @@ export class OverlayRoom extends DurableObject {
       const client = pair[0];
       const server = pair[1];
       this.ctx.acceptWebSocket(server, [role]);
-      const state = (await this.ctx.storage.get("state")) || { ...DEFAULT_STATE };
+      const state = stateWithDefaults(await this.ctx.storage.get("state"));
       server.send(JSON.stringify({ type: "state", state }));
       return new Response(null, { status: 101, webSocket: client });
     }
@@ -67,7 +88,7 @@ export class OverlayRoom extends DurableObject {
     }
 
     if (url.pathname.endsWith("/state") && request.method === "GET") {
-      return json((await this.ctx.storage.get("state")) || { ...DEFAULT_STATE });
+      return json(stateWithDefaults(await this.ctx.storage.get("state")));
     }
 
     return new Response("Not found", { status: 404 });
@@ -84,7 +105,7 @@ export class OverlayRoom extends DurableObject {
     }
 
     if (role === "overlay" && data?.type === "event") {
-      const current = (await this.ctx.storage.get("state")) || { ...DEFAULT_STATE };
+      const current = stateWithDefaults(await this.ctx.storage.get("state"));
 
       if (data.event === "videoEnded") {
         if (current.video && (!data.src || current.video.src === data.src)) {
@@ -119,7 +140,7 @@ export class OverlayRoom extends DurableObject {
   }
 
   async handleCommand(command) {
-    const current = (await this.ctx.storage.get("state")) || { ...DEFAULT_STATE };
+    const current = stateWithDefaults(await this.ctx.storage.get("state"));
     let next = { ...current };
 
     switch (command.action) {
@@ -187,9 +208,16 @@ export class OverlayRoom extends DurableObject {
         };
         break;
       case "hideText": next.text = null; break;
+      case "setCurrentPark":
+        next.currentPark = normalizePark(command.park);
+        break;
       case "showRideWait":
         next.rideWait = {
-          park: [5,6,7,8].includes(Number(command.park)) ? Number(command.park) : 6,
+          park: (() => {
+            const selected = normalizePark(command.parkKey || next.currentPark);
+            const ids = { mk: 6, epcot: 5, hs: 7, ak: 8 };
+            return ids[selected] || 6;
+          })(),
           position: ["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position || "")) ? String(command.position) : "bottom",
           size: Math.max(2, Math.min(75, Number(command.size || 20))),
           cycle: Math.max(3, Math.min(60, Number(command.cycle || 10)))
@@ -198,7 +226,7 @@ export class OverlayRoom extends DurableObject {
       case "hideRideWait": next.rideWait = null; break;
       case "showWeather":
         next.weather = {
-          park: ["mk","epcot","hs","ak","springs"].includes(String(command.park || "").toLowerCase()) ? String(command.park).toLowerCase() : "mk",
+          park: normalizePark(command.park || next.currentPark),
           position: ["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position || "")) ? String(command.position) : "top-right",
           size: Math.max(10, Math.min(100, Number(command.size || 40))),
           unit: String(command.unit || "f").toLowerCase() === "c" ? "c" : "f"
@@ -207,14 +235,37 @@ export class OverlayRoom extends DurableObject {
       case "hideWeather": next.weather = null; break;
       case "showRadar":
         next.radar = {
-          park: ["mk","epcot","hs","ak","springs","wdw"].includes(String(command.park || "").toLowerCase()) ? String(command.park).toLowerCase() : "wdw",
+          park: normalizePark(command.park || next.currentPark),
           position: ["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position || "")) ? String(command.position) : "center",
           size: Math.max(20, Math.min(100, Number(command.size || 55))),
           zoom: [5,6,7].includes(Number(command.zoom)) ? Number(command.zoom) : 6
         };
         break;
       case "hideRadar": next.radar = null; break;
-      case "clear": next = { ...DEFAULT_STATE }; break;
+      case "timerSetName":
+        next.lineTimer = { ...normalizeTimer(next.lineTimer), name: sanitizeTimerName(command.name) };
+        break;
+      case "timerStart": {
+        const t = normalizeTimer(next.lineTimer);
+        next.lineTimer = t.running ? t : { ...t, running: true, startedAt: Date.now(), stoppedAt: null };
+        break;
+      }
+      case "timerStop": {
+        const t = normalizeTimer(next.lineTimer);
+        if (t.running && t.startedAt) {
+          const now = Date.now();
+          next.lineTimer = { ...t, running: false, startedAt: null, accumulatedMs: t.accumulatedMs + Math.max(0, now - t.startedAt), stoppedAt: now };
+        } else next.lineTimer = t;
+        break;
+      }
+      case "timerReset": {
+        const t = normalizeTimer(next.lineTimer);
+        next.lineTimer = { ...t, running: false, startedAt: null, accumulatedMs: 0, stoppedAt: null };
+        break;
+      }
+      case "timerShow": next.lineTimer = { ...normalizeTimer(next.lineTimer), visible: true }; break;
+      case "timerHide": next.lineTimer = { ...normalizeTimer(next.lineTimer), visible: false }; break;
+      case "clear": next = { ...DEFAULT_STATE, currentPark: normalizePark(next.currentPark) }; break;
       default: return json({ ok: false, error: "Unknown action" }, { status: 400 });
     }
 
