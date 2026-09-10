@@ -404,3 +404,11 @@ The overlay now uses two layers for each graphic:
 - the inner image handles Pulse/Jiggle/Bounce/Wiggle/Float/Heartbeat/Spin
 
 This prevents CSS animation transforms from overriding the transforms used to position a graphic at bottom-center and other anchored locations.
+
+
+## v0.29 — More Image Sizes + Aspect Ratio Lock
+
+Image size choices are now:
+5%, 10%, 15%, 20%, 25%, 30%, 35%, 40%, 50%, 60%, 75%, 90%, and 100%.
+
+Image sizing now explicitly preserves the source image's natural aspect ratio. The positioned outer shell controls width, while the actual image renders at width 100% with height auto. This also remains compatible with the v0.28 animation/position separation.

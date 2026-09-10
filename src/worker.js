@@ -180,7 +180,7 @@ export class OverlayRoom extends DurableObject {
           fit: command.fit || "contain",
           animation: ["none","pulse","jiggle","bounce","wiggle","float","heartbeat","spin"].includes(String(command.animation || "").toLowerCase()) ? String(command.animation).toLowerCase() : "none",
           position: command.position || "center",
-          size: Math.max(10, Math.min(100, Number(command.size || 40)))
+          size: Math.max(5, Math.min(100, Number(command.size || 40)))
         };
         const currentGraphics = Array.isArray(current.graphics)
           ? current.graphics.filter(g => g && g.src)

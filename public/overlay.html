@@ -108,8 +108,8 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 
 
 
-.graphic-shell{position:absolute;pointer-events:none}
-.graphic-anim{display:block;width:100%;height:100%;object-fit:contain;transform-origin:center center}
+.graphic-shell{position:absolute;pointer-events:none;height:auto}
+.graphic-anim{display:block;width:100%;height:auto;max-width:100%;object-fit:contain;transform-origin:center center}
 .graphic-anim.anim-none{animation:none}
 .graphic-anim.anim-pulse{animation:imgPulse 1.8s ease-in-out infinite}
 .graphic-anim.anim-jiggle{animation:imgJiggle .65s ease-in-out infinite}
@@ -201,7 +201,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 
   function place(el,pos,size){
     const safe=allowedPositions.has(pos)?pos:'center';
-    const pct=Math.max(10,Math.min(100,Number(size||40)));
+    const pct=Math.max(5,Math.min(100,Number(size||40)));
     Object.assign(el.style,{inset:'auto',top:'auto',right:'auto',bottom:'auto',left:'auto',width:`${pct}%`,height:'auto',maxWidth:`${pct}%`,maxHeight:'90%',transform:'none'});
     if(safe==='center'){
       el.style.left='50%';el.style.top='50%';el.style.transform='translate(-50%,-50%)';
