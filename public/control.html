@@ -237,6 +237,16 @@
           <select class="field dur">
             <option value="0">Stay on + layer</option><option value="5000">5 sec</option><option value="8000">8 sec</option><option value="10000">10 sec</option>
           </select>
+          <select class="field anim">
+            <option value="none" selected>No animation</option>
+            <option value="pulse">Pulse</option>
+            <option value="jiggle">Jiggle</option>
+            <option value="bounce">Bounce</option>
+            <option value="wiggle">Wiggle</option>
+            <option value="float">Float</option>
+            <option value="heartbeat">Heartbeat</option>
+            <option value="spin">Spin</option>
+          </select>
         </div>
 `
       : '';
@@ -257,7 +267,7 @@
       }
     }
 
-    const pos=card.querySelector('.pos'),dur=card.querySelector('.dur'),size=card.querySelector('.size');
+    const pos=card.querySelector('.pos'),dur=card.querySelector('.dur'),size=card.querySelector('.size'),anim=card.querySelector('.anim');
 
     card.querySelector('.show').onclick=()=>{
       if(item.kind==='image')cmd({
@@ -265,6 +275,7 @@
         src:item.url,
         duration:Number(dur?.value||0),
         position:pos.value,
+        animation:anim?.value||'none',
         size:Number(size?.value||40)
       });
       else if(item.kind==='video')cmd({action:'playVideo',src:item.url,position:pos.value,volume:1});

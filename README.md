@@ -385,3 +385,11 @@ Thumbnail reliability:
 - The search feature no longer depends on the controller's `$` helper or its initialization order.
 - Search count correctly returns to the total item count when the search field is cleared.
 - Thumbnail retry improvements from v0.25 are retained.
+
+
+## v0.27 — Per-Image Animations
+
+Each image asset now has an **Animation** dropdown:
+No animation, Pulse, Jiggle, Bounce, Wiggle, Float, Heartbeat, and Spin.
+
+The effect is chosen when SHOW is pressed and remains part of that image's active cloud state. It works with timed images and Stay On graphics, and multiple visible images may use different effects. Existing position, size, and duration controls remain unchanged.

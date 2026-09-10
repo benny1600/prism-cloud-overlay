@@ -178,6 +178,7 @@ export class OverlayRoom extends DurableObject {
           src: String(command.src || ""),
           duration: Math.max(0, Number(command.duration || 0)),
           fit: command.fit || "contain",
+          animation: ["none","pulse","jiggle","bounce","wiggle","float","heartbeat","spin"].includes(String(command.animation || "").toLowerCase()) ? String(command.animation).toLowerCase() : "none",
           position: command.position || "center",
           size: Math.max(10, Math.min(100, Number(command.size || 40)))
         };
