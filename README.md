@@ -280,3 +280,13 @@ Added a new **Ride Waits** tab to the mobile controller.
 - Ticker mode no longer runs the rotating-card interval.
 - Ticker uses the same ride filtering, omitted rides, and display-name aliases as Card mode.
 - Five-minute Queue-Times refresh remains active in both modes.
+
+
+## v0.19 — Visible / Seamless Wait Ticker Fix
+
+- Fixed ticker text color so ride names are white on the dark ticker bar.
+- Wait-time colors remain green/yellow/red.
+- Ticker now begins with content visible immediately instead of starting fully off-screen.
+- Rebuilt ticker as two duplicated groups for a seamless continuous marquee loop.
+- Animation restarts cleanly when park, size, speed, or ride data changes.
+- Card mode remains unchanged.

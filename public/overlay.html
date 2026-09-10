@@ -91,16 +91,17 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 #lineTimer .timer-reported{font-size:14px;font-weight:700;opacity:.88;margin-top:5px}#lineTimer .timer-time{font-size:38px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:1px;margin-top:8px}
 #lineTimer .timer-label{font-size:11px;opacity:.75;margin-top:4px;text-transform:uppercase;letter-spacing:.8px}
 
-#rideTicker{position:absolute;display:none;pointer-events:none;left:0;right:0;bottom:18px;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-#rideTicker .ticker-shell{position:relative;width:100%;overflow:hidden;background:rgba(8,12,18,.92);border-top:1px solid rgba(255,255,255,.15);border-bottom:1px solid rgba(255,255,255,.15);box-shadow:0 8px 24px rgba(0,0,0,.4)}
-#rideTicker .ticker-track{display:inline-flex;align-items:center;gap:34px;white-space:nowrap;padding:10px 0;will-change:transform;animation:rideTickerScroll 36s linear infinite}
-#rideTicker .ticker-item{display:inline-flex;align-items:center;gap:8px;font-weight:750;font-size:22px}
+#rideTicker{position:absolute;display:none;pointer-events:none;left:0;right:0;bottom:18px;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff}
+#rideTicker .ticker-shell{position:relative;width:100%;overflow:hidden;background:rgba(8,12,18,.92);color:#fff;border-top:1px solid rgba(255,255,255,.15);border-bottom:1px solid rgba(255,255,255,.15);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#rideTicker .ticker-track{display:flex;width:max-content;align-items:center;white-space:nowrap;will-change:transform;animation:rideTickerScroll 36s linear infinite}
+#rideTicker .ticker-group{display:flex;align-items:center;gap:34px;white-space:nowrap;padding:10px 34px 10px 0}
+#rideTicker .ticker-item{display:inline-flex;align-items:center;gap:8px;font-weight:750;font-size:22px;color:#fff}
 #rideTicker .ticker-wait{font-weight:900}
 #rideTicker .ticker-wait.green{color:#67d96f}
 #rideTicker .ticker-wait.yellow{color:#ffd54f}
 #rideTicker .ticker-wait.red{color:#ff6b6b}
-#rideTicker .ticker-credit{font-size:11px;opacity:.65;margin-left:10px}
-@keyframes rideTickerScroll{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+#rideTicker .ticker-credit{font-size:11px;color:#fff;opacity:.72;margin-left:10px}
+@keyframes rideTickerScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
 #status{display:none;position:absolute;top:8px;left:8px;padding:5px 8px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:12px system-ui,sans-serif}
 </style>
@@ -317,39 +318,50 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     }
 
     rideTickerTrack.replaceChildren();
-    const frag=document.createDocumentFragment();
-    usable.forEach((r,i)=>{
-      const item=document.createElement('span');
-      item.className='ticker-item';
 
-      const name=document.createElement('span');
-      name.textContent=r._displayName||r.name;
+    function buildGroup(){
+      const group=document.createElement('div');
+      group.className='ticker-group';
 
-      const wait=document.createElement('span');
-      const mins=typeof r.wait_time==='number'?r.wait_time:null;
-      wait.className='ticker-wait '+waitColorClass(mins);
-      wait.textContent=mins!==null?`${mins} min`:(r.is_open===false?'Closed':'--');
+      usable.forEach(r=>{
+        const item=document.createElement('span');
+        item.className='ticker-item';
 
-      item.append(name,wait);
-      frag.appendChild(item);
+        const name=document.createElement('span');
+        name.textContent=r._displayName||r.name;
 
-      if(i===usable.length-1){
-        const credit=document.createElement('span');
-        credit.className='ticker-credit';
-        credit.textContent='Wait times via Queue-Times';
-        frag.appendChild(credit);
-      }
-    });
-    rideTickerTrack.appendChild(frag);
+        const wait=document.createElement('span');
+        const mins=typeof r.wait_time==='number'?r.wait_time:null;
+        wait.className='ticker-wait '+waitColorClass(mins);
+        wait.textContent=mins!==null?`${mins} min`:(r.is_open===false?'Closed':'--');
+
+        item.append(name,wait);
+        group.appendChild(item);
+      });
+
+      const credit=document.createElement('span');
+      credit.className='ticker-credit';
+      credit.textContent='Wait times via Queue-Times';
+      group.appendChild(credit);
+
+      return group;
+    }
+
+    // Two identical groups create a seamless loop and ensure text is visible immediately.
+    rideTickerTrack.append(buildGroup(),buildGroup());
 
     const size=Math.max(2,Math.min(75,Number(cfg?.size||20)));
     const font=Math.max(12,Math.round(22*(size/20)));
     rideTickerTrack.querySelectorAll('.ticker-item').forEach(el=>el.style.fontSize=`${font}px`);
 
-    // Cycle setting doubles as ticker speed: lower cycle = faster, higher = slower.
     const cycle=Math.max(3,Math.min(60,Number(cfg?.cycle||10)));
     const duration=Math.max(18,Math.min(70,cycle*3.6));
     rideTickerTrack.style.animationDuration=`${duration}s`;
+
+    // Restart animation cleanly whenever ticker contents/settings change.
+    rideTickerTrack.style.animationName='none';
+    void rideTickerTrack.offsetWidth;
+    rideTickerTrack.style.animationName='rideTickerScroll';
 
     rideTicker.style.display='block';
   }
