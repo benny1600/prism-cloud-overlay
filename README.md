@@ -335,3 +335,17 @@ This version removes the ambiguous shared wait-display command path.
 - Card and Ticker modes both work with the expanded timing options:
   5, 10, 15, 20, 30, 45, 60, 90, and 120 seconds.
 - No changes to the working v0.20 Card/Ticker command architecture.
+
+
+## v0.23 — Dedicated Hide Wait Times Button
+
+- Added **HIDE WAIT TIMES** to the Wait Times controls.
+- It sends the existing `hideRideWait` command.
+- Hides either Card or Ticker mode.
+- Does not clear or affect:
+  - Weather
+  - Radar
+  - Images / GIFs
+  - Text
+  - Line Timer
+- No change to CLEAR SCREEN behavior.
