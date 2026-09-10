@@ -349,3 +349,15 @@ This version removes the ambiguous shared wait-display command path.
   - Text
   - Line Timer
 - No change to CLEAR SCREEN behavior.
+
+
+## v0.24 — Images Tab Search
+
+- Added a **Search images…** field to the Images tab.
+- Filters the visible asset library instantly as you type.
+- Matching is case-insensitive and works against the displayed asset/file name.
+- Search is local to the controller only:
+  - no R2 files are changed
+  - nothing is deleted or renamed
+  - no extra server requests are needed while typing
+- Clearing the search field shows the full image library again.

@@ -28,6 +28,10 @@
 
 <section id="upload" class="panel">
   <div class="uploadbox"><h2>Add media</h2><p>Images, GIFs, MP4/WebM video, or audio. Recommended mobile limit: 75 MB per file.</p><input id="fileInput" type="file" accept="image/*,video/mp4,video/webm,audio/*"><button id="uploadBtn" class="bigbtn play" style="width:100%">UPLOAD TO CLOUD</button><div id="uploadStatus" class="status" style="margin-top:10px"></div></div>
+      <div class="media-search" style="margin:10px 0">
+        <input id="imageSearch" class="field" type="search" placeholder="Search images…" autocomplete="off" />
+      </div>
+
 </section>
 
 <section id="text" class="panel">
@@ -393,6 +397,27 @@
   document.querySelectorAll('.tab[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===b.dataset.tab));if(b.dataset.tab==='rideSettings')loadRideSetup()});
   if(key){$('#login').classList.add('hidden');connect();loadLibrary()}
 })();
+
+  function filterImageLibrary(){
+    const q=($('#imageSearch')?.value||'').trim().toLowerCase();
+    const list=document.querySelector('#mediaList')||document.querySelector('#assetList')||document.querySelector('#imageList')||document.querySelector('#libraryList');
+    if(!list)return;
+
+    // Filter only individual media entries, not the entire tab.
+    const items=[...list.children];
+    items.forEach(item=>{
+      const haystack=(
+        item.dataset?.name ||
+        item.getAttribute?.('data-key') ||
+        item.textContent ||
+        ''
+      ).toLowerCase();
+      item.style.display=!q || haystack.includes(q) ? '' : 'none';
+    });
+  }
+
+
+  if($('#imageSearch'))$('#imageSearch').oninput=filterImageLibrary;
 </script>
 </body>
 </html>
