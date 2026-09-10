@@ -376,3 +376,12 @@ Thumbnail reliability:
 - Image thumbnails now use eager loading instead of browser lazy-loading.
 - Added one automatic retry with a cache-busting URL if a thumbnail fails to load on the first attempt.
 - This only affects controller thumbnails; it does not duplicate or modify R2 files.
+
+
+## v0.26 — Gallery `$ is not defined` Fix
+
+- Fixed the Gallery/Library JavaScript error: `$ is not defined`.
+- Image search now uses native `document.getElementById()` and `querySelectorAll()` calls.
+- The search feature no longer depends on the controller's `$` helper or its initialization order.
+- Search count correctly returns to the total item count when the search field is cleared.
+- Thumbnail retry improvements from v0.25 are retained.

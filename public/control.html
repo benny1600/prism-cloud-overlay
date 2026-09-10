@@ -426,22 +426,32 @@
 })();
 
   function filterImageLibrary(){
-    const q=($('#imageSearch')?.value||'').trim().toLowerCase();
-    const list=$('#libraryGrid');
+    const search=document.getElementById('imageSearch');
+    const list=document.getElementById('libraryGrid');
+    const count=document.getElementById('count');
     if(!list)return;
 
+    const q=(search?.value||'').trim().toLowerCase();
     const cards=[...list.querySelectorAll('.media-card')];
+
     cards.forEach(card=>{
       const haystack=(card.dataset.name||card.querySelector('.name')?.textContent||'').toLowerCase();
       card.style.display=!q || haystack.includes(q) ? '' : 'none';
     });
 
     const visible=cards.filter(card=>card.style.display!=='none').length;
-    if(q && $('#count'))$('#count').textContent=`${visible} match${visible===1?'':'es'}`;
+    if(count){
+      count.textContent=q
+        ? `${visible} match${visible===1?'':'es'}`
+        : `${cards.length} item${cards.length===1?'':'s'}`;
+    }
   }
 
 
-  if($('#imageSearch'))$('#imageSearch').oninput=filterImageLibrary;
+  {
+    const imageSearch=document.getElementById('imageSearch');
+    if(imageSearch)imageSearch.addEventListener('input',filterImageLibrary);
+  }
 </script>
 </body>
 </html>
