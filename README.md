@@ -270,3 +270,13 @@ Added a new **Ride Waits** tab to the mobile controller.
   - Size adjusts ticker text scale.
   - Cycle controls ticker scrolling speed.
 - Hide Ride Waits hides either display style.
+
+
+## v0.18 — Wait Ticker Rendering Fix
+
+- Fixed a v0.17 bug where Ticker mode briefly rendered but the legacy card renderer immediately turned the card back on.
+- Card and Ticker modes are now mutually exclusive.
+- Added `displayMode` to the ride-wait configuration key so switching Card ↔ Ticker is always detected, even when all other settings stay unchanged.
+- Ticker mode no longer runs the rotating-card interval.
+- Ticker uses the same ride filtering, omitted rides, and display-name aliases as Card mode.
+- Five-minute Queue-Times refresh remains active in both modes.

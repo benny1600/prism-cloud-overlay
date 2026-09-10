@@ -299,7 +299,8 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
   }
 
   function waitColorClass(minutes){
-    const n=Number(minutes);
+    if(typeof minutes!=='number')return '';
+    const n=minutes;
     if(!Number.isFinite(n))return '';
     if(n<=30)return 'green';
     if(n<=60)return 'yellow';
@@ -322,12 +323,12 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       item.className='ticker-item';
 
       const name=document.createElement('span');
-      name.textContent=r.name;
+      name.textContent=r._displayName||r.name;
 
       const wait=document.createElement('span');
-      const mins=Number(r.wait_time);
+      const mins=typeof r.wait_time==='number'?r.wait_time:null;
       wait.className='ticker-wait '+waitColorClass(mins);
-      wait.textContent=Number.isFinite(mins)?`${mins} min`:(r.is_open===false?'Closed':'--');
+      wait.textContent=mins!==null?`${mins} min`:(r.is_open===false?'Closed':'--');
 
       item.append(name,wait);
       frag.appendChild(item);
@@ -365,64 +366,89 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       const r=await fetch(`/ride-waits-data?park=${encodeURIComponent(cfg.park)}`,{cache:'no-store'});
       if(!r.ok)throw new Error(`HTTP ${r.status}`);
       const data=await r.json();
-      if((cfg?.displayMode||'card')==='ticker'){
-        const tickerRides=[];
-        const groups=Array.isArray(data?.lands)?data.lands:[];
-        for(const land of groups){
-          for(const ride of (Array.isArray(land?.rides)?land.rides:[])){
-            if(ride && ride.name && !OMIT_RIDES?.has?.(ride.name)) tickerRides.push(ride);
-          }
-        }
-        renderRideTicker(tickerRides,cfg);
-      } else hideRideTicker();
-      rideItems=rideList(data,cfg.parkKey||({6:'mk',5:'epcot',7:'hs',8:'ak'}[cfg.park]||'mk'));
+
+      rideItems=rideList(
+        data,
+        cfg.parkKey||({6:'mk',5:'epcot',7:'hs',8:'ak'}[cfg.park]||'mk')
+      );
       rideIndex=0;
+
+      const mode=(cfg.displayMode||'card').toLowerCase();
+
+      if(mode==='ticker'){
+        // Ticker mode is exclusive: never render the rotating card.
+        rideWait.style.display='none';
+        renderRideTicker(rideItems,cfg);
+        return;
+      }
+
+      // Card mode is exclusive: never leave the ticker visible.
+      hideRideTicker();
       renderRide();
     }catch(e){
       console.warn('Ride waits:',e);
       rideItems=[];
       rideWait.style.display='none';
+      hideRideTicker();
     }
   }
 
   function applyRideWait(cfg){
     if(!cfg){
-      hideRideTicker();
-    } else if((cfg.displayMode||'card')==='ticker'){
-      // Card visibility is suppressed while ticker mode is active.
-      const rideCard=document.querySelector('#rideWait');
-      if(rideCard)rideCard.style.display='none';
-    } else {
-      hideRideTicker();
-    }
-
-    if(!cfg){
       rideConfigKey='';
       rideItems=[];
       stopRideTimers();
       rideWait.style.display='none';
+      hideRideTicker();
       return;
     }
 
+    const mode=(cfg.displayMode||'card').toLowerCase();
+
+    // Include displayMode so changing Card <-> Ticker always reapplies the overlay.
+    const key=`${cfg.park}|${cfg.parkKey||''}|${cfg.position}|${cfg.size}|${cfg.cycle}|${mode}|${rideSettingsSignature}`;
+
+    if(key===rideConfigKey){
+      if(mode==='ticker'){
+        rideWait.style.display='none';
+        if(rideItems.length)renderRideTicker(rideItems,cfg);
+      }else{
+        hideRideTicker();
+        place(rideWait,cfg.position,cfg.size);
+        rideWait.style.maxHeight='none';
+        renderRide();
+      }
+      return;
+    }
+
+    rideConfigKey=key;
+    stopRideTimers();
+
+    if(mode==='ticker'){
+      rideWait.style.display='none';
+      hideRideTicker();
+      refreshRideWait(cfg);
+
+      // Ticker animation is continuous; only the data needs periodic refresh.
+      rideRefreshTimer=setInterval(()=>refreshRideWait(cfg),300000);
+      return;
+    }
+
+    hideRideTicker();
     place(rideWait,cfg.position,cfg.size);
     rideWait.style.maxHeight='none';
 
-    const key=`${cfg.park}|${cfg.parkKey||''}|${cfg.position}|${cfg.size}|${cfg.cycle}|${rideSettingsSignature}`;
-    if(key===rideConfigKey){
-      renderRide();
-      return;
-    }
-    rideConfigKey=key;
-    stopRideTimers();
     refreshRideWait(cfg);
+
+    // Card mode rotates one ride at a time.
     rideCycleTimer=setInterval(()=>{
       if(!rideItems.length)return;
       rideIndex=(rideIndex+1)%rideItems.length;
       renderRide();
     },Math.max(3,Number(cfg.cycle||10))*1000);
+
     rideRefreshTimer=setInterval(()=>refreshRideWait(cfg),300000);
   }
-
 
   function weatherDescription(code){
     if(code===0)return{icon:'☀️',text:'Clear sky'};
