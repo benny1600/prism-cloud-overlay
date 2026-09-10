@@ -326,3 +326,12 @@ This version removes the ambiguous shared wait-display command path.
 - Card mode still uses the selected value as the time each ride stays on screen.
 - Ticker mode uses the selected value to scale the overall marquee speed.
 - Worker now accepts values up to 120 seconds.
+
+
+## v0.22 — Wait Times Control Regression Fix
+
+- Fixed the v0.21 regression that accidentally renamed the `rideCycle` HTML element ID.
+- The SHOW WAITS handler can again read the selected timing value correctly.
+- Card and Ticker modes both work with the expanded timing options:
+  5, 10, 15, 20, 30, 45, 60, 90, and 120 seconds.
+- No changes to the working v0.20 Card/Ticker command architecture.
