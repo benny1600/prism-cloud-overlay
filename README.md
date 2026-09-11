@@ -412,3 +412,37 @@ Image size choices are now:
 5%, 10%, 15%, 20%, 25%, 30%, 35%, 40%, 50%, 60%, 75%, 90%, and 100%.
 
 Image sizing now explicitly preserves the source image's natural aspect ratio. The positioned outer shell controls width, while the actual image renders at width 100% with height auto. This also remains compatible with the v0.28 animation/position separation.
+
+
+## v0.30 — Streamer.bot Integration + Test Panel
+
+The existing Cloudflare Worker already exposes a protected room command endpoint, so v0.30 keeps the current overlay/controller behavior intact and documents that endpoint for Streamer.bot.
+
+Endpoint:
+`POST /api/<room>/command`
+
+For the current test room:
+`POST /api/mobiletest/command`
+
+Required header:
+`X-Control-Key: <existing CONTROL_KEY>`
+
+Also send:
+`Content-Type: application/json`
+
+Example body:
+```json
+{
+  "action": "showText",
+  "value": "VIP GREETING TEST",
+  "position": "bottom",
+  "color": "#ffffff",
+  "size": 48,
+  "font": "system",
+  "scroll": false
+}
+```
+
+The new **Streamer.bot Test** tab in `control.html` sends its tests through that exact HTTP endpoint instead of the controller WebSocket, so it verifies the same Cloudflare path Streamer.bot will use from home.
+
+Security: keep `CONTROL_KEY` only in the trusted controller/Streamer.bot setup. Never place it in the public PRISM overlay URL.

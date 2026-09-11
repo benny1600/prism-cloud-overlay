@@ -18,7 +18,7 @@
 <main>
 <div class="top">
   <div class="row"><div class="grow"><strong>Mobile Overlay</strong><div id="conn" class="status">Disconnected</div></div><button id="logout" class="tab">Lock</button></div>
-  <div class="tabs" style="overflow-x:auto"><button class="tab active" data-tab="library">Library</button><button class="tab" data-tab="upload">Upload</button><button class="tab" data-tab="text">Text</button><button class="tab" data-tab="rides">Parks</button><button class="tab" data-tab="rideSettings">Ride Setup</button></div>
+  <div class="tabs" style="overflow-x:auto"><button class="tab active" data-tab="library">Library</button><button class="tab" data-tab="upload">Upload</button><button class="tab" data-tab="text">Text</button><button class="tab" data-tab="rides">Parks</button><button class="tab" data-tab="rideSettings">Ride Setup</button><button class="tab" data-tab="streamerbot">Streamer.bot Test</button></div>
 </div>
 
 <section id="library" class="panel active">
@@ -142,6 +142,23 @@
   </div>
 </section>
 
+
+<section id="streamerbot" class="panel">
+  <div class="card">
+    <h2>Streamer.bot Test</h2>
+    <p class="status">This uses the same protected Cloudflare command endpoint that Streamer.bot will use from home.</p>
+    <input id="sbTestTextValue" class="field" value="VIP GREETING TEST" maxlength="120" style="margin:10px 0" />
+    <div class="settings">
+      <select id="sbTestTextPos" class="field"><option value="bottom">Bottom</option><option value="top">Top</option></select>
+      <select id="sbTestTextSize" class="field"><option value="36">36</option><option value="48" selected>48</option><option value="64">64</option><option value="80">80</option></select>
+    </div>
+    <div class="actions" style="margin-top:10px">
+      <button id="sbTestTextBtn" class="bigbtn play">TEST TEXT</button>
+      <button id="sbTestClearBtn" class="bigbtn stop">TEST CLEAR</button>
+    </div>
+    <div id="sbTestStatus" class="status" style="margin-top:10px">Ready.</div>
+  </div>
+</section>
 </main>
 <button id="clear" class="clear">CLEAR SCREEN</button>
 <script>
@@ -443,6 +460,20 @@
   $('#refresh').onclick=loadLibrary;
   $('#uploadBtn').onclick=async()=>{const f=$('#fileInput').files[0];if(!f){note('Choose a file first');return}if(f.size>75*1024*1024){note('File is over 75 MB');return}$('#uploadStatus').textContent=`Uploading ${f.name}…`;try{await api(`/api/media/upload?name=${encodeURIComponent(f.name)}`,{method:'POST',headers:{'content-type':f.type||'application/octet-stream','X-File-Name':f.name},body:f});$('#uploadStatus').textContent='Upload complete';$('#fileInput').value='';note('Media uploaded');loadLibrary();document.querySelector('[data-tab="library"]').click()}catch(e){$('#uploadStatus').textContent=e.message}};
   $('#showText').onclick=()=>cmd({action:'showText',value:$('#textValue').value,position:$('#textPos').value,color:$('#textColor').value,size:Number($('#textSize').value),font:$('#textFont').value,scroll:$('#textMode').value==='scroll',scrollSeconds:Number($('#textSpeed').value)});$('#hideText').onclick=()=>cmd({action:'hideText'});$('#clear').onclick=()=>cmd({action:'clear'});
+  async function streamerbotTestCommand(payload){
+    const status=$('#sbTestStatus');
+    try{
+      if(status)status.textContent='Sending…';
+      const data=await api(`/api/${encodeURIComponent(room)}/command`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+      if(status)status.textContent='Success — Cloudflare accepted the command.';
+      return data;
+    }catch(e){
+      if(status)status.textContent=`Error: ${e.message}`;
+      throw e;
+    }
+  }
+  $('#sbTestTextBtn').onclick=()=>streamerbotTestCommand({action:'showText',value:$('#sbTestTextValue').value||'VIP GREETING TEST',position:$('#sbTestTextPos').value,color:'#ffffff',size:Number($('#sbTestTextSize').value||48),font:'system',scroll:false,scrollSeconds:12});
+  $('#sbTestClearBtn').onclick=()=>streamerbotTestCommand({action:'clear'});
   document.querySelectorAll('.tab[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===b.dataset.tab));if(b.dataset.tab==='rideSettings')loadRideSetup()});
   if(key){$('#login').classList.add('hidden');connect();loadLibrary()}
 })();
