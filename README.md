@@ -446,3 +446,22 @@ Example body:
 The new **Streamer.bot Test** tab in `control.html` sends its tests through that exact HTTP endpoint instead of the controller WebSocket, so it verifies the same Cloudflare path Streamer.bot will use from home.
 
 Security: keep `CONTROL_KEY` only in the trusted controller/Streamer.bot setup. Never place it in the public PRISM overlay URL.
+
+
+## v0.31 — PC Command Builder
+
+Adds `public/control-builder.html` without changing the existing `control.html` or overlay behavior.
+
+Open:
+
+`/control-builder.html?room=mobiletest`
+
+The builder uses the same visual controls as the normal controller. Whenever an overlay command is triggered it captures the exact command and displays:
+
+- HTTP endpoint: `/api/<room>/command`
+- Method: `POST`
+- Headers (`Content-Type` plus an `X-Control-Key: <CONTROL_KEY>` placeholder)
+- Exact JSON body for the selected action and parameters
+- Copy Endpoint, Copy JSON, Copy Streamer.bot Setup, and Test via HTTP buttons
+
+The real control key is deliberately never inserted into copied text. Keep the key only in trusted tools such as Streamer.bot.
