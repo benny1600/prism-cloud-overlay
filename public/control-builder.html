@@ -230,7 +230,7 @@ public class CPHInline
         try
         {
             string url = "${url}";
-            string controlKey = "PUT_YOUR_ACTUAL_KEY_HERE";
+            string controlKey = CPH.GetGlobalVar<string>("cloudOverlayControlKey", true);
             string json = "${json}";
 
             using (HttpClient client = new HttpClient())

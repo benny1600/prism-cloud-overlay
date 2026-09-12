@@ -1,8 +1,8 @@
-# v0.32 — Streamer.bot C# generator
+# v0.33 — Streamer.bot C# generator
 
 - Command Builder now generates ready-to-paste Streamer.bot **Execute C# Code** for every captured overlay action.
 - Generated C# includes the Worker command URL, JSON payload, `X-Control-Key` header, and `cloudStatus` / `cloudResponse` diagnostic variables.
-- The actual control key is never embedded; replace `PUT_YOUR_ACTUAL_KEY_HERE` locally inside Streamer.bot.
+- Generated Streamer.bot C# reads the persisted global variable `cloudOverlayControlKey`, so the actual control key is never embedded in generated actions.
 - Added **COPY C#** button.
 - Existing controller, overlay, Worker logic, PRISM setup, and commands are unchanged.
 
