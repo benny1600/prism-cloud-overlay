@@ -178,10 +178,14 @@
     <label class="status" for="builderJson">JSON body</label>
     <textarea id="builderJson" class="field" readonly rows="12" spellcheck="false" style="margin:6px 0 12px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Consolas,monospace"></textarea>
 
+    <label class="status" for="builderCSharp">Streamer.bot C#</label>
+    <textarea id="builderCSharp" class="field" readonly rows="26" spellcheck="false" style="margin:6px 0 12px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Consolas,monospace"></textarea>
+
     <div class="actions">
-      <button id="copyBuilderEndpoint" class="bigbtn secondary">COPY ENDPOINT</button>
+      <button id="copyBuilderCSharp" class="bigbtn play">COPY C#</button>
       <button id="copyBuilderJson" class="bigbtn secondary">COPY JSON</button>
-      <button id="copyBuilderSetup" class="bigbtn play">COPY STREAMER.BOT SETUP</button>
+      <button id="copyBuilderEndpoint" class="bigbtn secondary">COPY ENDPOINT</button>
+      <button id="copyBuilderSetup" class="bigbtn secondary">COPY HTTP SETUP</button>
       <button id="testBuilderHttp" class="bigbtn secondary">TEST VIA HTTP</button>
     </div>
     <div id="builderStatus" class="status" style="margin-top:10px">Trigger any overlay action to generate a command.</div>
@@ -208,14 +212,65 @@
   }
   let lastGeneratedPayload=null;
   function builderEndpoint(){return `${location.origin}/api/${encodeURIComponent(room)}/command`}
+  function escapeCSharpString(value){
+    return String(value).replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\r/g,'\\r').replace(/\n/g,'\\n');
+  }
+  function streamerbotCSharp(){
+    if(!lastGeneratedPayload)return '// Trigger an overlay action first.';
+    const url=escapeCSharpString(builderEndpoint());
+    const json=escapeCSharpString(JSON.stringify(lastGeneratedPayload));
+    return `using System;
+using System.Net.Http;
+using System.Text;
+
+public class CPHInline
+{
+    public bool Execute()
+    {
+        try
+        {
+            string url = "${url}";
+            string controlKey = "PUT_YOUR_ACTUAL_KEY_HERE";
+            string json = "${json}";
+
+            using (HttpClient client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("X-Control-Key", controlKey);
+
+                using (StringContent content =
+                    new StringContent(json, Encoding.UTF8, "application/json"))
+                {
+                    HttpResponseMessage response =
+                        client.PostAsync(url, content).GetAwaiter().GetResult();
+
+                    string result =
+                        response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+
+                    CPH.SetArgument("cloudStatus", ((int)response.StatusCode).ToString());
+                    CPH.SetArgument("cloudResponse", result);
+
+                    return response.IsSuccessStatusCode;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            CPH.SetArgument("cloudStatus", "EXCEPTION");
+            CPH.SetArgument("cloudResponse", ex.Message);
+            return false;
+        }
+    }
+}`;
+  }
   function setGeneratedCommand(payload){
     lastGeneratedPayload=JSON.parse(JSON.stringify(payload||{}));
-    const ep=$('#builderEndpoint'),hdr=$('#builderHeaders'),body=$('#builderJson'),act=$('#builderAction'),status=$('#builderStatus');
+    const ep=$('#builderEndpoint'),hdr=$('#builderHeaders'),body=$('#builderJson'),cs=$('#builderCSharp'),act=$('#builderAction'),status=$('#builderStatus');
     if(ep)ep.value=builderEndpoint();
     if(hdr)hdr.value='Content-Type: application/json\nX-Control-Key: <CONTROL_KEY>';
     if(body)body.value=JSON.stringify(lastGeneratedPayload,null,2);
+    if(cs)cs.value=streamerbotCSharp();
     if(act)act.textContent=lastGeneratedPayload.action||'Unknown';
-    if(status)status.textContent='Command ready. Copy it into a Streamer.bot HTTP action.';
+    if(status)status.textContent='Command ready. Copy C# into Streamer.bot → Core → C# → Execute C# Code.';
   }
   async function copyText(text,label='Copied'){
     try{await navigator.clipboard.writeText(text);note(label)}
@@ -539,9 +594,11 @@
     $('#builderEndpoint').value=builderEndpoint();
     $('#builderHeaders').value='Content-Type: application/json\nX-Control-Key: <CONTROL_KEY>';
     $('#builderJson').value='Trigger any overlay action to generate JSON here.';
+    $('#builderCSharp').value='Trigger any overlay action to generate Streamer.bot C# here.';
+    $('#copyBuilderCSharp').onclick=()=>lastGeneratedPayload?copyText(streamerbotCSharp(),'Streamer.bot C# copied'):note('Trigger an action first');
     $('#copyBuilderEndpoint').onclick=()=>copyText(builderEndpoint(),'Endpoint copied');
     $('#copyBuilderJson').onclick=()=>lastGeneratedPayload?copyText(JSON.stringify(lastGeneratedPayload,null,2),'JSON copied'):note('Trigger an action first');
-    $('#copyBuilderSetup').onclick=()=>lastGeneratedPayload?copyText(streamerbotSetupText(),'Streamer.bot setup copied'):note('Trigger an action first');
+    $('#copyBuilderSetup').onclick=()=>lastGeneratedPayload?copyText(streamerbotSetupText(),'HTTP setup copied'):note('Trigger an action first');
     $('#testBuilderHttp').onclick=async()=>{
       if(!lastGeneratedPayload){note('Trigger an action first');return}
       const st=$('#builderStatus');st.textContent='Testing exact HTTP command…';
