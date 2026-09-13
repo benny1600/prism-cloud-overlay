@@ -126,6 +126,96 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 @keyframes imgHeartbeat{0%,40%,100%{transform:scale(1)}10%{transform:scale(1.10)}20%{transform:scale(1)}30%{transform:scale(1.07)}}
 @keyframes imgSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 
+
+/* ============================================================
+   MEMBER OVERLAY v0.34
+   Matches the existing OBS member overlay exactly.
+   This is independent of the normal graphics layer.
+   ============================================================ */
+#memberGroup{
+  position:absolute;
+  left:120px;
+  bottom:110px;
+  width:1200px;
+  height:352px;
+  opacity:0;
+  transform:translateY(70px) scale(.86);
+  transform-origin:left bottom;
+  pointer-events:none;
+  z-index:11000;
+}
+#memberGroup.show{animation:memberGroupIn .65s cubic-bezier(.16,.9,.28,1.22) forwards}
+#memberGroup.hide{animation:memberGroupOut .45s cubic-bezier(.55,.05,.8,.25) forwards}
+@keyframes memberGroupIn{
+  0%{opacity:0;transform:translateY(90px) scale(.72)}
+  70%{opacity:1;transform:translateY(-8px) scale(1.03)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes memberGroupOut{
+  0%{opacity:1;transform:translateY(0) scale(1)}
+  100%{opacity:0;transform:translateY(70px) scale(.82)}
+}
+#memberArt{
+  position:absolute;
+  inset:0;
+  width:1200px;
+  height:352px;
+  object-fit:contain;
+  display:block;
+}
+#memberTextWrap{
+  position:absolute;
+  left:520px;
+  top:78px;
+  width:625px;
+  height:210px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  opacity:0;
+  transform:scale(.08);
+  transform-origin:center center;
+}
+#memberTextWrap.show{animation:memberTextIn .58s .28s cubic-bezier(.16,.9,.28,1.36) forwards}
+#memberTextWrap.hide{animation:memberTextOut .34s cubic-bezier(.55,.05,.8,.25) forwards}
+@keyframes memberTextIn{
+  0%{opacity:0;transform:scale(.08)}
+  58%{opacity:1;transform:scale(1.13)}
+  78%{transform:scale(.97)}
+  100%{opacity:1;transform:scale(1)}
+}
+@keyframes memberTextOut{
+  0%{opacity:1;transform:scale(1)}
+  22%{transform:scale(1.05)}
+  100%{opacity:0;transform:scale(.08)}
+}
+#memberName{
+  width:100%;
+  white-space:nowrap;
+  font-size:70px;
+  line-height:1;
+  font-weight:1000;
+  color:#1b1b1b;
+  text-shadow:0 3px 0 rgba(255,255,255,.9),0 0 4px rgba(255,255,255,.9),3px 5px 8px rgba(0,0,0,.28);
+}
+#memberLabel{
+  position:absolute;
+  left:520px;
+  top:52px;
+  width:625px;
+  text-align:center;
+  font-size:24px;
+  font-weight:900;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:#b63a24;
+  text-shadow:0 2px 0 rgba(255,255,255,.85);
+  opacity:0;
+}
+#memberGroup.show #memberLabel{animation:memberLabelIn .3s .42s ease forwards}
+@keyframes memberLabelIn{to{opacity:1}}
+
 </style>
 </head>
 <body>
@@ -187,6 +277,12 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     </div>
   </div>
   <div id="status"></div>
+  <!-- Existing Member Overlay, now included in the PRISM cloud canvas -->
+  <div id="memberGroup" aria-hidden="true">
+    <img id="memberArt" src="member_art.gif" alt="">
+    <div id="memberLabel">Welcome In Member</div>
+    <div id="memberTextWrap"><div id="memberName">THE_BIG_BEN_THEORY</div></div>
+  </div>
 </div>
 <script>
 (() => {
@@ -812,5 +908,91 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
   } connect();
 })();
 </script>
+<!-- Member overlay uses the SAME existing Firebase memberTriggers feed as OBS. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+(function(){
+  const firebaseConfig={
+    apiKey:"AIzaSyCN13hajyyYKXyJX0p7cJgwmC-lSK3l0eM",
+    authDomain:"bouncy-avatar.firebaseapp.com",
+    databaseURL:"https://bouncy-avatar-default-rtdb.firebaseio.com",
+    projectId:"bouncy-avatar",
+    storageBucket:"bouncy-avatar.firebasestorage.app",
+    messagingSenderId:"802651000636",
+    appId:"1:802651000636:web:9e5edc79958b9ff909d839"
+  };
+
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const ref=firebase.database().ref("memberTriggers");
+    const group=document.getElementById("memberGroup");
+    const textWrap=document.getElementById("memberTextWrap");
+    const nameEl=document.getElementById("memberName");
+    let queue=[];
+    let busy=false;
+
+    function fitName(){
+      let size=70;
+      nameEl.style.fontSize=size+"px";
+      while(nameEl.scrollWidth>nameEl.clientWidth && size>30){
+        size-=2;
+        nameEl.style.fontSize=size+"px";
+      }
+    }
+
+    function playNext(){
+      if(busy || !queue.length) return;
+      busy=true;
+      const item=queue.shift();
+      nameEl.textContent=item.name || "Member";
+      fitName();
+      group.className="";
+      textWrap.className="";
+      void group.offsetWidth;
+      group.classList.add("show");
+      textWrap.classList.add("show");
+
+      setTimeout(()=>{
+        textWrap.classList.remove("show");
+        textWrap.classList.add("hide");
+        setTimeout(()=>{
+          group.classList.remove("show");
+          group.classList.add("hide");
+          setTimeout(()=>{
+            group.className="";
+            textWrap.className="";
+            busy=false;
+            playNext();
+          },500);
+        },260);
+      },5000);
+    }
+
+    const startedAt=Date.now();
+    ref.on("child_added",snap=>{
+      const data=snap.val()||{};
+      const at=Number(data.at||0);
+      if(at && at<startedAt-3000) return;
+      queue.push({name:String(data.name||"Member")});
+      playNext();
+    });
+
+    // Optional browser test: overlay.html?room=mobiletest&memberTest=THE_BIG_BEN_THEORY
+    const testName=new URLSearchParams(location.search).get("memberTest");
+    if(testName){
+      setTimeout(()=>{queue.push({name:testName});playNext();},700);
+    }
+
+    window.previewMember=function(name){
+      queue.push({name:name||"THE_BIG_BEN_THEORY"});
+      playNext();
+    };
+  }catch(err){
+    console.warn("Member overlay initialization failed",err);
+  }
+})();
+</script>
+
 </body>
 </html>
