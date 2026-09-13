@@ -128,21 +128,31 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 
 
 /* ============================================================
-   MEMBER OVERLAY v0.34
+   MEMBER OVERLAY v0.35
    Matches the existing OBS member overlay exactly.
    This is independent of the normal graphics layer.
    ============================================================ */
+#memberAnchor{
+  position:absolute;
+  left:35px;
+  bottom:35px;
+  width:1200px;
+  height:352px;
+  transform:scale(.40);
+  transform-origin:left bottom;
+  pointer-events:none;
+  z-index:11000;
+}
 #memberGroup{
   position:absolute;
-  left:120px;
-  bottom:110px;
+  left:0;
+  bottom:0;
   width:1200px;
   height:352px;
   opacity:0;
   transform:translateY(70px) scale(.86);
   transform-origin:left bottom;
   pointer-events:none;
-  z-index:11000;
 }
 #memberGroup.show{animation:memberGroupIn .65s cubic-bezier(.16,.9,.28,1.22) forwards}
 #memberGroup.hide{animation:memberGroupOut .45s cubic-bezier(.55,.05,.8,.25) forwards}
@@ -278,10 +288,12 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
   </div>
   <div id="status"></div>
   <!-- Existing Member Overlay, now included in the PRISM cloud canvas -->
-  <div id="memberGroup" aria-hidden="true">
-    <img id="memberArt" src="member_art.gif" alt="">
-    <div id="memberLabel">Welcome In Member</div>
-    <div id="memberTextWrap"><div id="memberName">THE_BIG_BEN_THEORY</div></div>
+  <div id="memberAnchor">
+    <div id="memberGroup" aria-hidden="true">
+      <img id="memberArt" src="member_art.gif" alt="">
+      <div id="memberLabel">Welcome In Member</div>
+      <div id="memberTextWrap"><div id="memberName">THE_BIG_BEN_THEORY</div></div>
+    </div>
   </div>
 </div>
 <script>

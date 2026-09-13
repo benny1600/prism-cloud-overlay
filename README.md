@@ -1,15 +1,4 @@
-# PRISM Cloud Overlay v0.34
-
-## v0.34 — Existing Member Overlay in PRISM
-
-This version adds the existing **Welcome In Member** overlay directly to the PRISM cloud overlay while leaving the existing OBS/Firebase member overlay untouched.
-
-- Uses the same `member_art.gif`, placement, text styling, pop-in/pop-out animation, and ~5 second timing as the working OBS member overlay.
-- Listens to the same Firebase `memberTriggers` feed already used by the existing member system.
-- No member avatar is downloaded. Only the member name is read from the trigger.
-- No Worker command/API changes were required, so all existing v0.33 commands remain unchanged.
-- Optional test URL: `overlay.html?room=mobiletest&memberTest=THE_BIG_BEN_THEORY`
-- For PRISM after deployment, add a cache-buster to the overlay URL, for example `&v=034`.
+# v0.33 — Streamer.bot C# generator
 
 - Command Builder now generates ready-to-paste Streamer.bot **Execute C# Code** for every captured overlay action.
 - Generated C# includes the Worker command URL, JSON payload, `X-Control-Key` header, and `cloudStatus` / `cloudResponse` diagnostic variables.
@@ -484,3 +473,11 @@ The builder uses the same visual controls as the normal controller. Whenever an 
 - Copy Endpoint, Copy JSON, Copy Streamer.bot Setup, and Test via HTTP buttons
 
 The real control key is deliberately never inserted into copied text. Keep the key only in trusted tools such as Streamer.bot.
+
+
+## v0.35 member overlay sizing
+- Member greeting reduced to 40% of its original visual size.
+- Anchored 35px from the lower-left corner of the 1920x1080 canvas.
+- Existing member artwork, text proportions, Firebase trigger, animation, and timing are unchanged.
+- Existing OBS/Firebase overlay is not modified.
+- PRISM cache-buster: `&v=035`.
