@@ -1,13 +1,30 @@
+```
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=10,user-scalable=yes,viewport-fit=cover">
 <title>Mobile Overlay Control</title>
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0e0f12;color:#f6f7f9}button,input,select{font:inherit}main{max-width:900px;margin:auto;padding:14px 14px 90px}.top{position:sticky;top:0;z-index:20;background:rgba(14,15,18,.96);backdrop-filter:blur(8px);padding:10px 0}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.grow{flex:1}.status{font-size:13px;opacity:.75}.tabs{display:flex;gap:8px;margin-top:10px}.tab{padding:10px 14px;border-radius:12px;border:1px solid #30343b;background:#17191e;color:#fff}.tab.active{background:#f3f4f6;color:#111}.panel{display:none;margin-top:14px}.panel.active{display:block}.card{border:1px solid #2c3037;background:#15171b;border-radius:16px;padding:12px}.library{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}.media-card{border:1px solid #2b3037;border-radius:15px;background:#15171b;overflow:hidden}.preview{aspect-ratio:16/10;background:#090a0c;display:flex;align-items:center;justify-content:center;overflow:hidden}.preview img,.preview video{width:100%;height:100%;object-fit:contain}.info{padding:10px}.name{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:12px;opacity:.65;margin-top:3px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.actions button,.bigbtn{border:0;border-radius:12px;min-height:44px;font-weight:800}.play{background:#f4f5f7;color:#111}.secondary{background:#252932;color:#fff}.danger{background:#782a2a;color:#fff}.clear{position:fixed;z-index:30;bottom:12px;left:50%;transform:translateX(-50%);width:min(860px,calc(100% - 24px));min-height:58px;border:0;border-radius:16px;background:#c93b3b;color:white;font-weight:900;font-size:18px}.uploadbox{border:2px dashed #343942;border-radius:18px;padding:18px;text-align:center}.uploadbox input{width:100%;margin:10px 0}.field{width:100%;padding:10px;border-radius:11px;border:1px solid #353a43;background:#111318;color:white;font-size:13px}select.field{font-size:12px;padding:9px 7px}.settings{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}.login{position:fixed;inset:0;z-index:99;background:#0e0f12;display:flex;align-items:center;justify-content:center;padding:18px}.loginbox{width:min(420px,100%);border:1px solid #30343b;background:#15171b;border-radius:20px;padding:20px}.loginbox h1{margin-top:0}.hidden{display:none!important}.toast{position:fixed;z-index:120;top:14px;left:50%;transform:translateX(-50%);background:#242831;border:1px solid #3a404b;padding:10px 14px;border-radius:12px;display:none;max-width:90%}
 .current-park-card,.timer-card{margin-top:14px;padding:14px;border:1px solid #2c3037;border-radius:16px;background:#15171b}.current-park-card select,.timer-card input{width:100%;min-height:46px;font-size:16px}.timer-display{font-variant-numeric:tabular-nums;font-size:34px;font-weight:900;text-align:center;padding:10px 0}.timer-state{text-align:center;font-size:12px;opacity:.7}.timer-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:9px}.timer-actions.two{grid-template-columns:1fr 1fr}.timer-actions button{min-height:48px}
 
 .ride-setup-toolbar{display:grid;grid-template-columns:1fr auto;gap:9px;margin-bottom:12px}.ride-setup-list{display:grid;gap:10px}.ride-setup-row{border:1px solid #2c3037;background:#15171b;border-radius:14px;padding:11px}.ride-original{font-size:12px;opacity:.65;margin-bottom:7px}.ride-setup-row input[type="text"]{width:100%;min-height:44px}.ride-setup-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.omit-line{display:flex;align-items:center;gap:9px;min-height:44px;margin-top:7px}.omit-line input{width:22px;height:22px}.timer-reported{text-align:center;font-size:13px;opacity:.82;margin-top:5px}.timer-card select{width:100%;min-height:46px;font-size:16px}
+
+/* Trivia controller accessibility */
+.trivia-card{padding:16px}
+.trivia-card h2{margin:0 0 6px}
+.trivia-status{margin:12px 0;padding:14px;border:2px solid #4a505c;border-radius:14px;text-align:center;font-size:20px;font-weight:900;letter-spacing:.04em}
+.trivia-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.trivia-grid .field{min-height:54px;font-size:17px}
+.trivia-question{min-height:92px;resize:vertical}
+.trivia-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.trivia-actions .bigbtn{min-height:58px;font-size:16px}
+.trivia-wide{grid-column:1/-1}
+.trivia-answer-label{display:flex;gap:8px;align-items:center}
+.trivia-answer-label strong{width:24px;font-size:18px}
+.trivia-answer-label input{flex:1}
+@media(max-width:600px){.trivia-grid,.trivia-actions{grid-template-columns:1fr}.trivia-wide{grid-column:auto}}
+
 </style>
 </head>
 <body>
@@ -18,7 +35,7 @@
 <main>
 <div class="top">
   <div class="row"><div class="grow"><strong>Mobile Overlay</strong><div id="conn" class="status">Disconnected</div></div><button id="logout" class="tab">Lock</button></div>
-  <div class="tabs" style="overflow-x:auto"><button class="tab active" data-tab="library">Library</button><button class="tab" data-tab="upload">Upload</button><button class="tab" data-tab="text">Text</button><button class="tab" data-tab="rides">Parks</button><button class="tab" data-tab="rideSettings">Ride Setup</button><button class="tab" data-tab="streamerbot">Streamer.bot Test</button></div>
+  <div class="tabs" style="overflow-x:auto"><button class="tab active" data-tab="library">Library</button><button class="tab" data-tab="upload">Upload</button><button class="tab" data-tab="text">Text</button><button class="tab" data-tab="rides">Parks</button><button class="tab" data-tab="rideSettings">Ride Setup</button><button class="tab" data-tab="trivia">Trivia</button><button class="tab" data-tab="streamerbot">Streamer.bot Test</button></div>
 </div>
 
 <section id="library" class="panel active">
@@ -142,6 +159,50 @@
   </div>
 </section>
 
+
+
+<section id="trivia" class="panel">
+  <div class="card trivia-card">
+    <h2>Trivia Control</h2>
+    <p class="status">Stage 1 controller. Enter a question manually while we build the Cloudflare trivia engine.</p>
+    <div id="triviaStatus" class="trivia-status">IDLE</div>
+
+    <label class="status" for="triviaQuestion">Question</label>
+    <textarea id="triviaQuestion" class="field trivia-question" maxlength="500" placeholder="Type the trivia question"></textarea>
+
+    <div class="trivia-grid" style="margin-top:10px">
+      <label class="trivia-answer-label"><strong>A</strong><input id="triviaA" class="field" maxlength="180" placeholder="Answer A"></label>
+      <label class="trivia-answer-label"><strong>B</strong><input id="triviaB" class="field" maxlength="180" placeholder="Answer B"></label>
+      <label class="trivia-answer-label"><strong>C</strong><input id="triviaC" class="field" maxlength="180" placeholder="Answer C"></label>
+      <label class="trivia-answer-label"><strong>D</strong><input id="triviaD" class="field" maxlength="180" placeholder="Answer D"></label>
+    </div>
+
+    <div class="settings">
+      <label class="card" style="padding:10px">Correct answer
+        <select id="triviaCorrect" class="field" style="margin-top:7px">
+          <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+        </select>
+      </label>
+      <label class="card" style="padding:10px">Question #
+        <input id="triviaNumber" class="field" type="number" min="1" value="1" style="margin-top:7px">
+      </label>
+    </div>
+
+    <label class="status" for="triviaExplanation">Explanation / fun fact</label>
+    <textarea id="triviaExplanation" class="field" maxlength="500" placeholder="Shown after the answer is revealed" style="min-height:74px;resize:vertical"></textarea>
+
+    <div class="trivia-actions">
+      <button id="triviaShow" class="bigbtn play trivia-wide">SHOW QUESTION</button>
+      <button id="triviaOpen" class="bigbtn play">OPEN ANSWERS</button>
+      <button id="triviaClose" class="bigbtn secondary">CLOSE ANSWERS</button>
+      <button id="triviaReveal" class="bigbtn play trivia-wide">REVEAL ANSWER</button>
+      <button id="triviaLeaderboard" class="bigbtn secondary">SHOW LEADERBOARD</button>
+      <button id="triviaHide" class="bigbtn secondary">HIDE TRIVIA</button>
+      <button id="triviaReset" class="bigbtn danger trivia-wide">RESET GAME</button>
+    </div>
+    <div id="triviaAnswerCount" class="status" style="text-align:center;margin-top:12px">0 answers received</div>
+  </div>
+</section>
 
 <section id="streamerbot" class="panel">
   <div class="card">
@@ -457,6 +518,26 @@
   $('#timerShow').onclick=()=>cmd({action:'timerShow'});
   $('#timerHide').onclick=()=>cmd({action:'timerHide'});
 
+
+  // Stage 1 Trivia controller UI. Cloudflare commands are enabled in Stage 2.
+  function setTriviaStatus(label){const el=$('#triviaStatus');if(el)el.textContent=label}
+  function triviaDraft(){
+    return {
+      questionNumber:Number($('#triviaNumber')?.value||1),
+      question:$('#triviaQuestion')?.value.trim()||'',
+      answers:{A:$('#triviaA')?.value.trim()||'',B:$('#triviaB')?.value.trim()||'',C:$('#triviaC')?.value.trim()||'',D:$('#triviaD')?.value.trim()||''},
+      correct:$('#triviaCorrect')?.value||'A',
+      explanation:$('#triviaExplanation')?.value.trim()||''
+    };
+  }
+  $('#triviaShow').onclick=()=>{const d=triviaDraft();if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}setTriviaStatus('QUESTION READY');note('Trivia UI ready — Worker connection comes in Stage 2')};
+  $('#triviaOpen').onclick=()=>{setTriviaStatus('ANSWERS OPEN');note('Stage 2 will open live answers')};
+  $('#triviaClose').onclick=()=>{setTriviaStatus('ANSWERS CLOSED');note('Stage 2 will close live answers')};
+  $('#triviaReveal').onclick=()=>{setTriviaStatus(`ANSWER REVEALED • ${$('#triviaCorrect').value}`);note('Stage 2 will reveal this on the overlay')};
+  $('#triviaLeaderboard').onclick=()=>note('Leaderboard becomes active with scoring');
+  $('#triviaHide').onclick=()=>{setTriviaStatus('HIDDEN');note('Stage 2 will hide the trivia overlay')};
+  $('#triviaReset').onclick=()=>{if(confirm('Reset the trivia controller fields?')){$('#triviaQuestion').value='';['A','B','C','D'].forEach(x=>$('#trivia'+x).value='');$('#triviaExplanation').value='';$('#triviaCorrect').value='A';$('#triviaNumber').value='1';setTriviaStatus('IDLE');$('#triviaAnswerCount').textContent='0 answers received'}};
+
   $('#refresh').onclick=loadLibrary;
   $('#uploadBtn').onclick=async()=>{const f=$('#fileInput').files[0];if(!f){note('Choose a file first');return}if(f.size>75*1024*1024){note('File is over 75 MB');return}$('#uploadStatus').textContent=`Uploading ${f.name}…`;try{await api(`/api/media/upload?name=${encodeURIComponent(f.name)}`,{method:'POST',headers:{'content-type':f.type||'application/octet-stream','X-File-Name':f.name},body:f});$('#uploadStatus').textContent='Upload complete';$('#fileInput').value='';note('Media uploaded');loadLibrary();document.querySelector('[data-tab="library"]').click()}catch(e){$('#uploadStatus').textContent=e.message}};
   $('#showText').onclick=()=>cmd({action:'showText',value:$('#textValue').value,position:$('#textPos').value,color:$('#textColor').value,size:Number($('#textSize').value),font:$('#textFont').value,scroll:$('#textMode').value==='scroll',scrollSeconds:Number($('#textSpeed').value)});$('#hideText').onclick=()=>cmd({action:'hideText'});$('#clear').onclick=()=>cmd({action:'clear'});
@@ -508,3 +589,4 @@
 </script>
 </body>
 </html>
+```
