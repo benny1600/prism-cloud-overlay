@@ -103,6 +103,32 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 #rideTicker .ticker-credit{font-size:11px;color:#fff;opacity:.72;margin-left:10px}
 @keyframes rideTickerScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
+
+/* Independent Trivia layer */
+#trivia{position:absolute;inset:0;display:none;pointer-events:none;z-index:10500;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff}
+#trivia .trivia-wrap{position:absolute;left:50%;top:50%;width:min(92vw,1120px);transform:translate(-50%,-50%);padding:clamp(18px,2.4vw,32px);border-radius:28px;background:linear-gradient(145deg,rgba(16,20,42,.97),rgba(34,16,54,.96));border:2px solid rgba(255,255,255,.18);box-shadow:0 20px 70px rgba(0,0,0,.58),inset 0 0 36px rgba(255,255,255,.04)}
+#trivia .trivia-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
+#trivia .trivia-kicker{font-size:clamp(16px,1.8vw,26px);font-weight:1000;letter-spacing:.12em;text-transform:uppercase;color:#ffd85a}
+#trivia .trivia-phase{padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.12);font-size:clamp(13px,1.25vw,18px);font-weight:900;letter-spacing:.06em;white-space:nowrap}
+#trivia .trivia-question{font-size:clamp(28px,4vw,58px);font-weight:950;line-height:1.08;text-align:center;margin:10px auto 22px;max-width:1000px;text-wrap:balance;text-shadow:0 3px 10px rgba(0,0,0,.55)}
+#trivia .trivia-answers{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+#trivia .trivia-answer{display:flex;align-items:center;gap:14px;min-height:86px;padding:14px 18px;border-radius:18px;background:rgba(255,255,255,.09);border:2px solid rgba(255,255,255,.13);font-size:clamp(20px,2.4vw,34px);font-weight:800;line-height:1.12}
+#trivia .trivia-letter{display:grid;place-items:center;flex:0 0 auto;width:48px;height:48px;border-radius:50%;background:#ffd85a;color:#181224;font-weight:1000}
+#trivia.revealed .trivia-answer.correct{background:rgba(31,170,92,.34);border-color:#68f09f;box-shadow:0 0 28px rgba(70,230,130,.25)}
+#trivia.revealed .trivia-answer.correct .trivia-letter{background:#68f09f;color:#092114}
+#trivia .trivia-explanation{display:none;margin-top:18px;padding:14px 18px;border-radius:16px;background:rgba(0,0,0,.24);font-size:clamp(16px,1.65vw,24px);line-height:1.25;text-align:center}
+#trivia.revealed .trivia-explanation.has-text{display:block}
+#trivia .trivia-leaderboard{display:none}
+#trivia.leaderboard .trivia-question,#trivia.leaderboard .trivia-answers,#trivia.leaderboard .trivia-explanation{display:none}
+#trivia.leaderboard .trivia-leaderboard{display:block}
+#trivia .trivia-leaderboard-title{text-align:center;font-size:clamp(34px,5vw,68px);font-weight:1000;margin:6px 0 18px}
+#trivia .trivia-ranks{display:grid;gap:10px;max-width:820px;margin:auto}
+#trivia .trivia-rank{display:grid;grid-template-columns:70px 1fr auto;align-items:center;gap:14px;padding:12px 18px;border-radius:15px;background:rgba(255,255,255,.09);font-size:clamp(20px,2.3vw,32px);font-weight:850}
+#trivia .trivia-rank-num{color:#ffd85a;font-weight:1000;text-align:center}
+#trivia .trivia-score{font-variant-numeric:tabular-nums;color:#9ee7ff}
+#trivia .trivia-empty{text-align:center;font-size:clamp(22px,3vw,38px);opacity:.78;padding:35px 0}
+@media(max-width:700px){#trivia .trivia-answers{grid-template-columns:1fr}#trivia .trivia-answer{min-height:66px}}
+
 #status{display:none;position:absolute;top:8px;left:8px;padding:5px 8px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:12px system-ui,sans-serif}
 
 
@@ -286,6 +312,26 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
       <div id="rideTickerTrack" class="ticker-track"></div>
     </div>
   </div>
+  <div id="trivia" aria-hidden="true">
+    <div class="trivia-wrap">
+      <div class="trivia-head">
+        <div id="triviaKicker" class="trivia-kicker">Trivia</div>
+        <div id="triviaPhase" class="trivia-phase">Question</div>
+      </div>
+      <div id="triviaQuestion" class="trivia-question"></div>
+      <div id="triviaAnswers" class="trivia-answers">
+        <div class="trivia-answer" data-choice="A"><span class="trivia-letter">A</span><span class="trivia-answer-text"></span></div>
+        <div class="trivia-answer" data-choice="B"><span class="trivia-letter">B</span><span class="trivia-answer-text"></span></div>
+        <div class="trivia-answer" data-choice="C"><span class="trivia-letter">C</span><span class="trivia-answer-text"></span></div>
+        <div class="trivia-answer" data-choice="D"><span class="trivia-letter">D</span><span class="trivia-answer-text"></span></div>
+      </div>
+      <div id="triviaExplanation" class="trivia-explanation"></div>
+      <div class="trivia-leaderboard">
+        <div class="trivia-leaderboard-title">Leaderboard</div>
+        <div id="triviaRanks" class="trivia-ranks"></div>
+      </div>
+    </div>
+  </div>
   <div id="status"></div>
   <!-- Existing Member Overlay, now included in the PRISM cloud canvas -->
   <div id="memberAnchor">
@@ -299,7 +345,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 <script>
 (() => {
   const q=new URLSearchParams(location.search), room=q.get('room')||'default', debug=q.get('debug')==='1';
-  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), radar=document.querySelector('#radar'), radarTitle=document.querySelector('#radarTitle'), radarTime=document.querySelector('#radarTime'), radarBase=document.querySelector('#radarBase'), radarLayer=document.querySelector('#radarLayer'), lineTimer=document.querySelector('#lineTimer'), lineTimerName=document.querySelector('#lineTimerName'), lineTimerReported=document.querySelector('#lineTimerReported'), lineTimerTime=document.querySelector('#lineTimerTime'), lineTimerLabel=document.querySelector('#lineTimerLabel'), rideTicker=document.querySelector('#rideTicker'), rideTickerTrack=document.querySelector('#rideTickerTrack'), status=document.querySelector('#status');
+  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), radar=document.querySelector('#radar'), radarTitle=document.querySelector('#radarTitle'), radarTime=document.querySelector('#radarTime'), radarBase=document.querySelector('#radarBase'), radarLayer=document.querySelector('#radarLayer'), lineTimer=document.querySelector('#lineTimer'), lineTimerName=document.querySelector('#lineTimerName'), lineTimerReported=document.querySelector('#lineTimerReported'), lineTimerTime=document.querySelector('#lineTimerTime'), lineTimerLabel=document.querySelector('#lineTimerLabel'), rideTicker=document.querySelector('#rideTicker'), rideTickerTrack=document.querySelector('#rideTickerTrack'), trivia=document.querySelector('#trivia'), triviaKicker=document.querySelector('#triviaKicker'), triviaPhase=document.querySelector('#triviaPhase'), triviaQuestion=document.querySelector('#triviaQuestion'), triviaAnswers=document.querySelector('#triviaAnswers'), triviaExplanation=document.querySelector('#triviaExplanation'), triviaRanks=document.querySelector('#triviaRanks'), status=document.querySelector('#status');
   let ws,retry=1000,currentVideoSrc=''; const timers=new Map(); if(debug)status.style.display='block';
   let rideItems=[],rideIndex=0,rideCycleTimer=null,rideRefreshTimer=null,rideConfigKey='';
   let weatherRefreshTimer=null,weatherConfigKey='';
@@ -895,6 +941,46 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     else{textInner.style.transform='none'}
   }
 
+  function applyTrivia(t){
+    if(!trivia)return;
+    const tr=t||{};
+    if(!tr.visible || tr.phase==='idle'){
+      trivia.style.display='none';
+      trivia.setAttribute('aria-hidden','true');
+      return;
+    }
+    const phase=String(tr.phase||'question');
+    trivia.className=phase==='revealed'?'revealed':phase==='leaderboard'?'leaderboard':'';
+    trivia.style.display='block';
+    trivia.setAttribute('aria-hidden','false');
+    triviaKicker.textContent=Number(tr.questionNumber)>0?`Trivia • Question ${Number(tr.questionNumber)}`:'Trivia';
+    const phaseLabels={question:'Question',open:'Answers Open',closed:'Answers Closed',revealed:'Correct Answer',leaderboard:'Leaderboard'};
+    triviaPhase.textContent=phaseLabels[phase]||'Trivia';
+    triviaQuestion.textContent=String(tr.question||'');
+    const answers=tr.answers||{};
+    triviaAnswers.querySelectorAll('.trivia-answer').forEach(el=>{
+      const choice=el.dataset.choice;
+      el.querySelector('.trivia-answer-text').textContent=String(answers[choice]||'');
+      el.classList.toggle('correct',phase==='revealed'&&choice===String(tr.correct||'').toUpperCase());
+    });
+    const explanation=phase==='revealed'?String(tr.explanation||'').trim():'';
+    triviaExplanation.textContent=explanation;
+    triviaExplanation.classList.toggle('has-text',Boolean(explanation));
+    triviaRanks.replaceChildren();
+    if(phase==='leaderboard'){
+      const rows=Array.isArray(tr.leaderboard)?tr.leaderboard.slice(0,10):[];
+      if(!rows.length){
+        const empty=document.createElement('div');empty.className='trivia-empty';empty.textContent='Scores will appear here';triviaRanks.appendChild(empty);
+      }else rows.forEach((row,i)=>{
+        const el=document.createElement('div');el.className='trivia-rank';
+        const rank=document.createElement('span');rank.className='trivia-rank-num';rank.textContent=`#${i+1}`;
+        const name=document.createElement('span');name.textContent=String(row?.name||'Player');
+        const score=document.createElement('span');score.className='trivia-score';score.textContent=String(Number(row?.score||0));
+        el.append(rank,name,score);triviaRanks.appendChild(el);
+      });
+    }
+  }
+
   function applyState(state){
     renderGraphics(state);
     if(state.video?.src){
@@ -910,6 +996,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
     applyWeather(state.weather);
     applyRadar(state.radar);
     applyLineTimer(state.lineTimer);
+    applyTrivia(state.trivia);
   }
 
   video.addEventListener('ended',()=>{video.style.display='none';if(ws?.readyState===1)ws.send(JSON.stringify({type:'event',event:'videoEnded',src:currentVideoSrc}))});
