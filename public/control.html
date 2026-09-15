@@ -163,7 +163,7 @@
 <section id="trivia" class="panel">
   <div class="card trivia-card">
     <h2>Trivia Control</h2>
-    <p class="status">Stage 1 controller. Enter a question manually while we build the Cloudflare trivia engine.</p>
+    <p class="status">Stage 2 controller. Questions are sent to the Cloudflare trivia engine; the PRISM trivia display is added in Stage 3.</p>
     <div id="triviaStatus" class="trivia-status">IDLE</div>
 
     <label class="status" for="triviaQuestion">Question</label>
@@ -267,7 +267,7 @@
   function fmtElapsed(ms){const t=Math.floor(Math.max(0,Number(ms||0))/1000);return [Math.floor(t/3600),Math.floor((t%3600)/60),t%60].map(v=>String(v).padStart(2,'0')).join(':')}
   function timerElapsed(t){let ms=Math.max(0,Number(t?.accumulatedMs||0));if(t?.running&&t.startedAt)ms+=Math.max(0,Date.now()-Number(t.startedAt));return ms}
   function renderState(s){
-    if(s)latestState={...latestState,...s,lineTimer:{...latestState.lineTimer,...(s.lineTimer||{})}};
+    if(s)latestState={...latestState,...s,lineTimer:{...latestState.lineTimer,...(s.lineTimer||{})},trivia:{...(latestState.trivia||{}),...(s.trivia||{})}};
     const park=latestState.currentPark||'mk';
     if($('#waitDisplayMode') && latestState.rideWait){$('#waitDisplayMode').value=(latestState.rideWait.ticker||latestState.rideWait.displayMode==='ticker')?'ticker':'card'}
     if($('#currentPark')&&$('#currentPark').value!==park)$('#currentPark').value=park;
@@ -281,6 +281,12 @@
     if($('#timerState'))$('#timerState').textContent=`${t.running?'Running':'Stopped'} • ${t.visible?'On screen':'Hidden'}`;
     if($('#timerReported')){const rep=typeof t.reportedWait==='number'?`${t.reportedWait} min`:(t.reportedStatus||'—');$('#timerReported').textContent=`Reported wait at start: ${rep}`}
     if($('#rideSettingsPark')&&document.activeElement!==$('#rideSettingsPark'))$('#rideSettingsPark').value=park==='springs'?'mk':park;
+    const tr=latestState.trivia||{};
+    if($('#triviaStatus')){
+      const labels={idle:'IDLE',question:'QUESTION READY',open:'ANSWERS OPEN',closed:'ANSWERS CLOSED',revealed:`ANSWER REVEALED${tr.correct?' • '+tr.correct:''}`,leaderboard:'LEADERBOARD'};
+      $('#triviaStatus').textContent=tr.visible===false&&tr.phase!=='idle'?'HIDDEN':(labels[tr.phase]||String(tr.phase||'IDLE').toUpperCase());
+    }
+    if($('#triviaAnswerCount')){const n=Math.max(0,Number(tr.answerCount||0));$('#triviaAnswerCount').textContent=`${n} answer${n===1?'':'s'} received`;}
   }
   setInterval(()=>renderState(),250);
   const fmt=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
@@ -518,7 +524,7 @@
   $('#timerHide').onclick=()=>cmd({action:'timerHide'});
 
 
-  // Stage 1 Trivia controller UI. Cloudflare commands are enabled in Stage 2.
+  // Stage 2 Trivia controller: sends protected commands through the existing control WebSocket.
   function setTriviaStatus(label){const el=$('#triviaStatus');if(el)el.textContent=label}
   function triviaDraft(){
     return {
@@ -529,13 +535,14 @@
       explanation:$('#triviaExplanation')?.value.trim()||''
     };
   }
-  $('#triviaShow').onclick=()=>{const d=triviaDraft();if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}setTriviaStatus('QUESTION READY');note('Trivia UI ready — Worker connection comes in Stage 2')};
-  $('#triviaOpen').onclick=()=>{setTriviaStatus('ANSWERS OPEN');note('Stage 2 will open live answers')};
-  $('#triviaClose').onclick=()=>{setTriviaStatus('ANSWERS CLOSED');note('Stage 2 will close live answers')};
-  $('#triviaReveal').onclick=()=>{setTriviaStatus(`ANSWER REVEALED • ${$('#triviaCorrect').value}`);note('Stage 2 will reveal this on the overlay')};
-  $('#triviaLeaderboard').onclick=()=>note('Leaderboard becomes active with scoring');
-  $('#triviaHide').onclick=()=>{setTriviaStatus('HIDDEN');note('Stage 2 will hide the trivia overlay')};
-  $('#triviaReset').onclick=()=>{if(confirm('Reset the trivia controller fields?')){$('#triviaQuestion').value='';['A','B','C','D'].forEach(x=>$('#trivia'+x).value='');$('#triviaExplanation').value='';$('#triviaCorrect').value='A';$('#triviaNumber').value='1';setTriviaStatus('IDLE');$('#triviaAnswerCount').textContent='0 answers received'}};
+  function triviaSend(action,extra={}){cmd({action,...extra})}
+  $('#triviaShow').onclick=()=>{const d=triviaDraft();if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}triviaSend('triviaSetQuestion',d);setTriviaStatus('QUESTION READY');note('Question sent to Cloudflare')};
+  $('#triviaOpen').onclick=()=>{triviaSend('triviaOpen');setTriviaStatus('ANSWERS OPEN');note('Answers opened')};
+  $('#triviaClose').onclick=()=>{triviaSend('triviaClose');setTriviaStatus('ANSWERS CLOSED');note('Answers closed')};
+  $('#triviaReveal').onclick=()=>{triviaSend('triviaReveal');setTriviaStatus(`ANSWER REVEALED • ${$('#triviaCorrect').value}`);note('Answer revealed')};
+  $('#triviaLeaderboard').onclick=()=>{triviaSend('triviaShowLeaderboard');setTriviaStatus('LEADERBOARD');note('Leaderboard requested')};
+  $('#triviaHide').onclick=()=>{triviaSend('triviaHide');setTriviaStatus('HIDDEN');note('Trivia hidden')};
+  $('#triviaReset').onclick=()=>{if(confirm('Reset the entire trivia game? This clears the current question and game data.')){triviaSend('triviaReset');$('#triviaQuestion').value='';['A','B','C','D'].forEach(x=>$('#trivia'+x).value='');$('#triviaExplanation').value='';$('#triviaCorrect').value='A';$('#triviaNumber').value='1';setTriviaStatus('IDLE');$('#triviaAnswerCount').textContent='0 answers received';note('Trivia game reset')}};
 
   $('#refresh').onclick=loadLibrary;
   $('#uploadBtn').onclick=async()=>{const f=$('#fileInput').files[0];if(!f){note('Choose a file first');return}if(f.size>75*1024*1024){note('File is over 75 MB');return}$('#uploadStatus').textContent=`Uploading ${f.name}…`;try{await api(`/api/media/upload?name=${encodeURIComponent(f.name)}`,{method:'POST',headers:{'content-type':f.type||'application/octet-stream','X-File-Name':f.name},body:f});$('#uploadStatus').textContent='Upload complete';$('#fileInput').value='';note('Media uploaded');loadLibrary();document.querySelector('[data-tab="library"]').click()}catch(e){$('#uploadStatus').textContent=e.message}};
