@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, trivia: { visible: false, phase: "idle", questionId: "", questionNumber: 0, question: "", answers: { A: "", B: "", C: "", D: "" }, correct: "", explanation: "", answerCount: 0, leaderboard: [] }, updatedAt: null });
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml",
@@ -83,9 +83,36 @@ function normalizeRideSettings(value) {
   return out;
 }
 
+function normalizeTrivia(value) {
+  const src = value && typeof value === "object" ? value : {};
+  const answers = src.answers && typeof src.answers === "object" ? src.answers : {};
+  const phase = ["idle","question","open","closed","revealed","leaderboard"].includes(String(src.phase || "")) ? String(src.phase) : "idle";
+  return {
+    visible: Boolean(src.visible),
+    phase,
+    questionId: String(src.questionId || "").slice(0, 120),
+    questionNumber: Math.max(0, Math.floor(Number(src.questionNumber || 0))),
+    question: String(src.question || "").slice(0, 500),
+    answers: {
+      A: String(answers.A || "").slice(0, 240),
+      B: String(answers.B || "").slice(0, 240),
+      C: String(answers.C || "").slice(0, 240),
+      D: String(answers.D || "").slice(0, 240)
+    },
+    correct: phase === "revealed" ? String(src.correct || "").toUpperCase().slice(0, 1) : "",
+    explanation: phase === "revealed" ? String(src.explanation || "").slice(0, 500) : "",
+    answerCount: Math.max(0, Math.floor(Number(src.answerCount || 0))),
+    leaderboard: Array.isArray(src.leaderboard) ? src.leaderboard.slice(0, 20).map(row => ({
+      userId: String(row?.userId || "").slice(0, 160),
+      name: String(row?.name || "").slice(0, 100),
+      score: Number.isFinite(Number(row?.score)) ? Number(row.score) : 0
+    })) : []
+  };
+}
+
 function stateWithDefaults(state) {
   const s = state || {};
-  return { ...DEFAULT_STATE, ...s, currentPark: normalizePark(s.currentPark || DEFAULT_STATE.currentPark), rideSettings: normalizeRideSettings(s.rideSettings), lineTimer: normalizeTimer(s.lineTimer || DEFAULT_STATE.lineTimer) };
+  return { ...DEFAULT_STATE, ...s, currentPark: normalizePark(s.currentPark || DEFAULT_STATE.currentPark), rideSettings: normalizeRideSettings(s.rideSettings), lineTimer: normalizeTimer(s.lineTimer || DEFAULT_STATE.lineTimer), trivia: normalizeTrivia(s.trivia || DEFAULT_STATE.trivia) };
 }
 
 export class OverlayRoom extends DurableObject {
@@ -355,7 +382,88 @@ export class OverlayRoom extends DurableObject {
       }
       case "timerShow": next.lineTimer = { ...normalizeTimer(next.lineTimer), visible: true }; break;
       case "timerHide": next.lineTimer = { ...normalizeTimer(next.lineTimer), visible: false }; break;
-      case "clear": next = { ...DEFAULT_STATE, currentPark: normalizePark(next.currentPark), rideSettings: normalizeRideSettings(next.rideSettings) }; break;
+      case "triviaSetQuestion": {
+        const question = String(command.question || "").trim().slice(0, 500);
+        const answers = command.answers && typeof command.answers === "object" ? command.answers : {};
+        const correct = String(command.correct || "").trim().toUpperCase();
+        if (!question) return json({ ok: false, error: "Missing trivia question" }, { status: 400 });
+        if (!["A","B","C","D"].includes(correct)) return json({ ok: false, error: "Correct answer must be A, B, C, or D" }, { status: 400 });
+        for (const key of ["A","B","C","D"]) {
+          if (!String(answers[key] || "").trim()) return json({ ok: false, error: `Missing answer ${key}` }, { status: 400 });
+        }
+        const questionId = String(command.questionId || crypto.randomUUID()).slice(0, 120);
+        await this.ctx.storage.put("triviaPrivate", {
+          questionId,
+          correct,
+          explanation: String(command.explanation || "").slice(0, 500)
+        });
+        await this.ctx.storage.delete("triviaAnswers");
+        next.trivia = {
+          visible: true,
+          phase: "question",
+          questionId,
+          questionNumber: Math.max(0, Math.floor(Number(command.questionNumber || 0))),
+          question,
+          answers: {
+            A: String(answers.A).slice(0, 240),
+            B: String(answers.B).slice(0, 240),
+            C: String(answers.C).slice(0, 240),
+            D: String(answers.D).slice(0, 240)
+          },
+          correct: "",
+          explanation: "",
+          answerCount: 0,
+          leaderboard: normalizeTrivia(current.trivia).leaderboard
+        };
+        break;
+      }
+      case "triviaOpen":
+        if (!normalizeTrivia(current.trivia).question) return json({ ok: false, error: "Set a trivia question first" }, { status: 400 });
+        next.trivia = { ...normalizeTrivia(current.trivia), visible: true, phase: "open", correct: "", explanation: "" };
+        break;
+      case "triviaClose":
+        next.trivia = { ...normalizeTrivia(current.trivia), visible: true, phase: "closed", correct: "", explanation: "" };
+        break;
+      case "triviaReveal": {
+        const privateTrivia = await this.ctx.storage.get("triviaPrivate");
+        if (!privateTrivia?.correct) return json({ ok: false, error: "No correct answer is stored for this question" }, { status: 400 });
+        next.trivia = {
+          ...normalizeTrivia(current.trivia),
+          visible: true,
+          phase: "revealed",
+          correct: String(privateTrivia.correct || "").toUpperCase().slice(0, 1),
+          explanation: String(privateTrivia.explanation || "").slice(0, 500)
+        };
+        break;
+      }
+      case "triviaShowLeaderboard":
+        next.trivia = { ...normalizeTrivia(current.trivia), visible: true, phase: "leaderboard", correct: "", explanation: "" };
+        break;
+      case "triviaHide":
+        next.trivia = { ...normalizeTrivia(current.trivia), visible: false };
+        break;
+      case "triviaAnswer": {
+        const trivia = normalizeTrivia(current.trivia);
+        if (trivia.phase !== "open") return json({ ok: false, error: "Trivia answers are closed" }, { status: 409 });
+        const userId = String(command.userId || "").trim().slice(0, 160);
+        const name = String(command.name || command.displayName || "").trim().slice(0, 100);
+        const choice = String(command.choice || command.answer || "").trim().toUpperCase();
+        if (!userId) return json({ ok: false, error: "Missing viewer userId" }, { status: 400 });
+        if (!["A","B","C","D"].includes(choice)) return json({ ok: false, error: "Answer must be A, B, C, or D" }, { status: 400 });
+        const stored = await this.ctx.storage.get("triviaAnswers");
+        const answerMap = stored && typeof stored === "object" ? stored : {};
+        if (answerMap[userId]) return json({ ok: false, error: "Viewer already answered", duplicate: true }, { status: 409 });
+        answerMap[userId] = { userId, name, choice, answeredAt: Date.now(), questionId: trivia.questionId };
+        await this.ctx.storage.put("triviaAnswers", answerMap);
+        next.trivia = { ...trivia, answerCount: Object.keys(answerMap).length };
+        break;
+      }
+      case "triviaReset":
+        await this.ctx.storage.delete("triviaPrivate");
+        await this.ctx.storage.delete("triviaAnswers");
+        next.trivia = { ...DEFAULT_STATE.trivia };
+        break;
+      case "clear": next = { ...DEFAULT_STATE, currentPark: normalizePark(next.currentPark), rideSettings: normalizeRideSettings(next.rideSettings), trivia: normalizeTrivia(next.trivia) }; break;
       default: return json({ ok: false, error: "Unknown action" }, { status: 400 });
     }
 
