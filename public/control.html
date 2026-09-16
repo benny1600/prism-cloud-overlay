@@ -22,6 +22,9 @@
 .trivia-answer-label{display:flex;gap:8px;align-items:center}
 .trivia-answer-label strong{width:24px;font-size:18px}
 .trivia-answer-label input{flex:1}
+.trivia-sheet-tools{margin:12px 0 16px;padding:14px;border:1px solid #3a4050;border-radius:14px;background:#111318}
+.trivia-sheet-meta{margin-top:9px;font-size:13px;opacity:.82}
+.trivia-sheet-tools .bigbtn{width:100%;min-height:56px;margin-top:10px}
 @media(max-width:600px){.trivia-grid,.trivia-actions{grid-template-columns:1fr}.trivia-wide{grid-column:auto}}
 
 </style>
@@ -163,8 +166,29 @@
 <section id="trivia" class="panel">
   <div class="card trivia-card">
     <h2>Trivia Control</h2>
-    <p class="status">Stage 2 controller. Questions are sent to the Cloudflare trivia engine; the PRISM trivia display is added in Stage 3.</p>
+    <p class="status">Load an unused enabled question from Google Sheets, review it, then run the existing trivia controls.</p>
     <div id="triviaStatus" class="trivia-status">IDLE</div>
+
+    <div class="trivia-sheet-tools">
+      <div class="trivia-grid">
+        <label class="card" style="padding:10px">Category
+          <select id="triviaSheetCategory" class="field" style="margin-top:7px">
+            <option value="">All categories</option>
+            <option value="Disney Parks">Disney Parks</option>
+          </select>
+        </label>
+        <label class="card" style="padding:10px">Difficulty
+          <select id="triviaSheetDifficulty" class="field" style="margin-top:7px">
+            <option value="">All difficulties</option>
+            <option value="Easy">Easy</option>
+            <option value="Medium">Medium</option>
+            <option value="Hard">Hard</option>
+          </select>
+        </label>
+      </div>
+      <button id="triviaLoadQuestion" class="bigbtn play">🎲 LOAD RANDOM QUESTION</button>
+      <div id="triviaSheetMeta" class="trivia-sheet-meta">Google Sheet ready • no question loaded</div>
+    </div>
 
     <label class="status" for="triviaQuestion">Question</label>
     <textarea id="triviaQuestion" class="field trivia-question" maxlength="500" placeholder="Type the trivia question"></textarea>
@@ -237,7 +261,7 @@
     try{ws?.close()}catch{};const proto=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}?role=control&key=${encodeURIComponent(key)}`);
     ws.onopen=()=>{retry=1000;conn.textContent=`Connected • ${room}`};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state')renderState(m.state||{})}catch{}};ws.onclose=e=>{if(!key)return;conn.textContent=e.code===1008?'Unauthorized':'Reconnecting…';setTimeout(connect,retry);retry=Math.min(retry*1.6,10000)};ws.onerror=()=>ws.close();
   }
-  function cmd(payload){if(ws?.readyState===1)ws.send(JSON.stringify(payload));else note('Controller is reconnecting')}
+  function cmd(payload){if(ws?.readyState===1){ws.send(JSON.stringify(payload));return true}else{note('Controller is reconnecting');return false}}
   let latestState={currentPark:'mk',rideSettings:{},lineTimer:{name:'',rideKey:'',park:'mk',reportedWait:null,reportedStatus:'',running:false,visible:false,startedAt:null,accumulatedMs:0}};
   const PARK_IDS={mk:6,epcot:5,hs:7,ak:8};
 
@@ -524,7 +548,8 @@
   $('#timerHide').onclick=()=>cmd({action:'timerHide'});
 
 
-  // Stage 2 Trivia controller: sends protected commands through the existing control WebSocket.
+  // Trivia controller + Google Sheet question loader.
+  let loadedSheetQuestionId='';
   function setTriviaStatus(label){const el=$('#triviaStatus');if(el)el.textContent=label}
   function triviaDraft(){
     return {
@@ -535,14 +560,44 @@
       explanation:$('#triviaExplanation')?.value.trim()||''
     };
   }
-  function triviaSend(action,extra={}){cmd({action,...extra})}
-  $('#triviaShow').onclick=()=>{const d=triviaDraft();if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}triviaSend('triviaSetQuestion',d);setTriviaStatus('QUESTION READY');note('Question sent to Cloudflare')};
+  function triviaSend(action,extra={}){return cmd({action,...extra})}
+  async function loadTriviaSheetQuestion(){
+    const btn=$('#triviaLoadQuestion'),meta=$('#triviaSheetMeta');
+    const params=new URLSearchParams();
+    const category=$('#triviaSheetCategory')?.value||'';
+    const difficulty=$('#triviaSheetDifficulty')?.value||'';
+    if(category)params.set('category',category);
+    if(difficulty)params.set('difficulty',difficulty);
+    btn.disabled=true;btn.textContent='LOADING…';meta.textContent='Loading from Google Sheet…';
+    try{
+      const d=await api(`/api/${encodeURIComponent(room)}/trivia-question${params.toString()?'?'+params.toString():''}`);
+      const x=d.question||{};
+      loadedSheetQuestionId=String(x.id||'');
+      $('#triviaQuestion').value=x.question||'';
+      $('#triviaA').value=x.A||'';$('#triviaB').value=x.B||'';$('#triviaC').value=x.C||'';$('#triviaD').value=x.D||'';
+      $('#triviaCorrect').value=x.correct||'A';
+      $('#triviaExplanation').value=x.explanation||'';
+      const n=Number.parseInt(String(x.id||''),10);if(Number.isFinite(n)&&n>0)$('#triviaNumber').value=n;
+      meta.textContent=`Loaded #${x.id||'?'} • ${x.category||'Uncategorized'} • ${x.difficulty||'Unrated'} • ${d.remaining||0} eligible`;
+      note(`Loaded question #${x.id||''}`);
+    }catch(e){loadedSheetQuestionId='';meta.textContent=`Sheet error: ${e.message}`;note(e.message)}
+    finally{btn.disabled=false;btn.textContent='🎲 LOAD RANDOM QUESTION'}
+  }
+  async function markLoadedTriviaUsed(id){
+    if(!id)return;
+    try{
+      await api(`/api/${encodeURIComponent(room)}/trivia-mark-used`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});
+      if(loadedSheetQuestionId===id){$('#triviaSheetMeta').textContent+= ' • USED';loadedSheetQuestionId='';}
+    }catch(e){note(`Question shown, but Sheet Used update failed: ${e.message}`)}
+  }
+  $('#triviaLoadQuestion').onclick=loadTriviaSheetQuestion;
+  $('#triviaShow').onclick=()=>{const d=triviaDraft();if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}const sheetId=loadedSheetQuestionId;const sent=triviaSend('triviaSetQuestion',d);if(!sent)return;setTriviaStatus('QUESTION READY');note('Question sent to Cloudflare');if(sheetId)markLoadedTriviaUsed(sheetId)};
   $('#triviaOpen').onclick=()=>{triviaSend('triviaOpen');setTriviaStatus('ANSWERS OPEN');note('Answers opened')};
   $('#triviaClose').onclick=()=>{triviaSend('triviaClose');setTriviaStatus('ANSWERS CLOSED');note('Answers closed')};
   $('#triviaReveal').onclick=()=>{triviaSend('triviaReveal');setTriviaStatus(`ANSWER REVEALED • ${$('#triviaCorrect').value}`);note('Answer revealed')};
   $('#triviaLeaderboard').onclick=()=>{triviaSend('triviaShowLeaderboard');setTriviaStatus('LEADERBOARD');note('Leaderboard requested')};
   $('#triviaHide').onclick=()=>{triviaSend('triviaHide');setTriviaStatus('HIDDEN');note('Trivia hidden')};
-  $('#triviaReset').onclick=()=>{if(confirm('Reset the entire trivia game? This clears the current question and game data.')){triviaSend('triviaReset');$('#triviaQuestion').value='';['A','B','C','D'].forEach(x=>$('#trivia'+x).value='');$('#triviaExplanation').value='';$('#triviaCorrect').value='A';$('#triviaNumber').value='1';setTriviaStatus('IDLE');$('#triviaAnswerCount').textContent='0 answers received';note('Trivia game reset')}};
+  $('#triviaReset').onclick=()=>{if(confirm('Reset the entire trivia game? This clears the current question and game data.')){triviaSend('triviaReset');$('#triviaQuestion').value='';['A','B','C','D'].forEach(x=>$('#trivia'+x).value='');$('#triviaExplanation').value='';$('#triviaCorrect').value='A';$('#triviaNumber').value='1';loadedSheetQuestionId='';if($('#triviaSheetMeta'))$('#triviaSheetMeta').textContent='Google Sheet ready • no question loaded';setTriviaStatus('IDLE');$('#triviaAnswerCount').textContent='0 answers received';note('Trivia game reset')}};
 
   $('#refresh').onclick=loadLibrary;
   $('#uploadBtn').onclick=async()=>{const f=$('#fileInput').files[0];if(!f){note('Choose a file first');return}if(f.size>75*1024*1024){note('File is over 75 MB');return}$('#uploadStatus').textContent=`Uploading ${f.name}…`;try{await api(`/api/media/upload?name=${encodeURIComponent(f.name)}`,{method:'POST',headers:{'content-type':f.type||'application/octet-stream','X-File-Name':f.name},body:f});$('#uploadStatus').textContent='Upload complete';$('#fileInput').value='';note('Media uploaded');loadLibrary();document.querySelector('[data-tab="library"]').click()}catch(e){$('#uploadStatus').textContent=e.message}};
