@@ -103,11 +103,67 @@ function normalizeTrivia(value) {
     explanation: phase === "revealed" ? String(src.explanation || "").slice(0, 500) : "",
     answerCount: Math.max(0, Math.floor(Number(src.answerCount || 0))),
     leaderboard: Array.isArray(src.leaderboard) ? src.leaderboard.slice(0, 20).map(row => ({
-      userId: String(row?.userId || "").slice(0, 160),
+      rank: Math.max(1, Math.floor(Number(row?.rank || 1))),
       name: String(row?.name || "").slice(0, 100),
-      score: Number.isFinite(Number(row?.score)) ? Number(row.score) : 0
+      score: Math.max(0, Math.floor(Number(row?.score || 0))),
+      correct: Math.max(0, Math.floor(Number(row?.correct || 0))),
+      answered: Math.max(0, Math.floor(Number(row?.answered || 0)))
     })) : []
   };
+}
+
+
+function normalizeTriviaScores(value) {
+  const src = value && typeof value === "object" ? value : {};
+  const out = {};
+  let count = 0;
+  for (const [rawUserId, raw] of Object.entries(src)) {
+    if (count >= 10000) break;
+    const userId = String(rawUserId || "").trim().slice(0, 160);
+    if (!userId || !raw || typeof raw !== "object") continue;
+    out[userId] = {
+      userId,
+      name: String(raw.name || "Viewer").trim().slice(0, 100) || "Viewer",
+      score: Math.max(0, Math.floor(Number(raw.score || 0))),
+      correct: Math.max(0, Math.floor(Number(raw.correct || 0))),
+      answered: Math.max(0, Math.floor(Number(raw.answered || 0)))
+    };
+    count++;
+  }
+  return out;
+}
+
+function buildTriviaLeaderboard(scores, limit = 20) {
+  const rows = Object.values(normalizeTriviaScores(scores)).sort((a, b) =>
+    (b.score - a.score) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+  let previousScore = null;
+  let previousRank = 0;
+  return rows.slice(0, Math.max(1, Math.min(100, Number(limit || 20)))).map((row, index) => {
+    const rank = previousScore === row.score ? previousRank : index + 1;
+    previousScore = row.score;
+    previousRank = rank;
+    return { rank, name: row.name, score: row.score, correct: row.correct, answered: row.answered };
+  });
+}
+
+function getTriviaViewerScore(scores, userId) {
+  const normalized = normalizeTriviaScores(scores);
+  const viewer = normalized[userId];
+  if (!viewer) return { userId, name: "", score: 0, correct: 0, answered: 0, rank: null, totalPlayers: Object.keys(normalized).length };
+  const ordered = Object.values(normalized).sort((a, b) =>
+    (b.score - a.score) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+  let previousScore = null;
+  let previousRank = 0;
+  let rank = null;
+  for (let i = 0; i < ordered.length; i++) {
+    const rowRank = previousScore === ordered[i].score ? previousRank : i + 1;
+    previousScore = ordered[i].score;
+    previousRank = rowRank;
+    if (ordered[i].userId === userId) { rank = rowRank; break; }
+  }
+  return { ...viewer, rank, totalPlayers: ordered.length };
 }
 
 function stateWithDefaults(state) {
@@ -190,6 +246,44 @@ export class OverlayRoom extends DurableObject {
     for (const socket of this.ctx.getWebSockets()) {
       try { socket.send(payload); } catch {}
     }
+  }
+
+  async finalizeTriviaQuestion(trivia) {
+    const privateTrivia = await this.ctx.storage.get("triviaPrivate");
+    const questionId = String(trivia?.questionId || privateTrivia?.questionId || "").slice(0, 120);
+    if (!questionId || !privateTrivia?.correct || String(privateTrivia.questionId || "") !== questionId) {
+      return { scores: normalizeTriviaScores(await this.ctx.storage.get("triviaScores")), finalized: false };
+    }
+
+    const finalizedStored = await this.ctx.storage.get("triviaFinalized");
+    const finalizedMap = finalizedStored && typeof finalizedStored === "object" ? finalizedStored : {};
+    const existingScores = normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+    if (finalizedMap[questionId]) return { scores: existingScores, finalized: false };
+
+    const storedAnswers = await this.ctx.storage.get("triviaAnswers");
+    const answerMap = storedAnswers && typeof storedAnswers === "object" ? storedAnswers : {};
+    const correctChoice = String(privateTrivia.correct || "").toUpperCase().slice(0, 1);
+    const scores = { ...existingScores };
+
+    for (const answer of Object.values(answerMap)) {
+      if (!answer || String(answer.questionId || "") !== questionId) continue;
+      const userId = String(answer.userId || "").trim().slice(0, 160);
+      if (!userId) continue;
+      const prior = scores[userId] || { userId, name: "Viewer", score: 0, correct: 0, answered: 0 };
+      const isCorrect = String(answer.choice || "").toUpperCase() === correctChoice;
+      scores[userId] = {
+        userId,
+        name: String(answer.name || prior.name || "Viewer").trim().slice(0, 100) || "Viewer",
+        score: prior.score + (isCorrect ? 1 : 0),
+        correct: prior.correct + (isCorrect ? 1 : 0),
+        answered: prior.answered + 1
+      };
+    }
+
+    finalizedMap[questionId] = Date.now();
+    await this.ctx.storage.put("triviaScores", scores);
+    await this.ctx.storage.put("triviaFinalized", finalizedMap);
+    return { scores, finalized: true };
   }
 
   async handleCommand(command) {
@@ -421,24 +515,32 @@ export class OverlayRoom extends DurableObject {
         if (!normalizeTrivia(current.trivia).question) return json({ ok: false, error: "Set a trivia question first" }, { status: 400 });
         next.trivia = { ...normalizeTrivia(current.trivia), visible: true, phase: "open", correct: "", explanation: "" };
         break;
-      case "triviaClose":
-        next.trivia = { ...normalizeTrivia(current.trivia), visible: true, phase: "closed", correct: "", explanation: "" };
+      case "triviaClose": {
+        const trivia = normalizeTrivia(current.trivia);
+        const result = await this.finalizeTriviaQuestion(trivia);
+        next.trivia = { ...trivia, visible: true, phase: "closed", correct: "", explanation: "", leaderboard: buildTriviaLeaderboard(result.scores) };
         break;
+      }
       case "triviaReveal": {
+        const trivia = normalizeTrivia(current.trivia);
         const privateTrivia = await this.ctx.storage.get("triviaPrivate");
         if (!privateTrivia?.correct) return json({ ok: false, error: "No correct answer is stored for this question" }, { status: 400 });
+        const result = await this.finalizeTriviaQuestion(trivia);
         next.trivia = {
-          ...normalizeTrivia(current.trivia),
+          ...trivia,
           visible: true,
           phase: "revealed",
           correct: String(privateTrivia.correct || "").toUpperCase().slice(0, 1),
-          explanation: String(privateTrivia.explanation || "").slice(0, 500)
+          explanation: String(privateTrivia.explanation || "").slice(0, 500),
+          leaderboard: buildTriviaLeaderboard(result.scores)
         };
         break;
       }
-      case "triviaShowLeaderboard":
-        next.trivia = { ...normalizeTrivia(current.trivia), visible: true, phase: "leaderboard", correct: "", explanation: "" };
+      case "triviaShowLeaderboard": {
+        const scores = normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+        next.trivia = { ...normalizeTrivia(current.trivia), visible: true, phase: "leaderboard", correct: "", explanation: "", leaderboard: buildTriviaLeaderboard(scores) };
         break;
+      }
       case "triviaHide":
         next.trivia = { ...normalizeTrivia(current.trivia), visible: false };
         break;
@@ -458,9 +560,17 @@ export class OverlayRoom extends DurableObject {
         next.trivia = { ...trivia, answerCount: Object.keys(answerMap).length };
         break;
       }
+      case "triviaGetScore": {
+        const userId = String(command.userId || "").trim().slice(0, 160);
+        if (!userId) return json({ ok: false, error: "Missing viewer userId" }, { status: 400 });
+        const scores = normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+        return json({ ok: true, viewer: getTriviaViewerScore(scores, userId) });
+      }
       case "triviaReset":
         await this.ctx.storage.delete("triviaPrivate");
         await this.ctx.storage.delete("triviaAnswers");
+        await this.ctx.storage.delete("triviaScores");
+        await this.ctx.storage.delete("triviaFinalized");
         next.trivia = { ...DEFAULT_STATE.trivia };
         break;
       case "clear": next = { ...DEFAULT_STATE, currentPark: normalizePark(next.currentPark), rideSettings: normalizeRideSettings(next.rideSettings), trivia: normalizeTrivia(next.trivia) }; break;
