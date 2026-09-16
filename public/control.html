@@ -577,7 +577,6 @@
       $('#triviaA').value=x.A||'';$('#triviaB').value=x.B||'';$('#triviaC').value=x.C||'';$('#triviaD').value=x.D||'';
       $('#triviaCorrect').value=x.correct||'A';
       $('#triviaExplanation').value=x.explanation||'';
-      const n=Number.parseInt(String(x.id||''),10);if(Number.isFinite(n)&&n>0)$('#triviaNumber').value=n;
       meta.textContent=`Loaded #${x.id||'?'} • ${x.category||'Uncategorized'} • ${x.difficulty||'Unrated'} • ${d.remaining||0} eligible`;
       note(`Loaded question #${x.id||''}`);
     }catch(e){loadedSheetQuestionId='';meta.textContent=`Sheet error: ${e.message}`;note(e.message)}
@@ -591,7 +590,7 @@
     }catch(e){note(`Question shown, but Sheet Used update failed: ${e.message}`)}
   }
   $('#triviaLoadQuestion').onclick=loadTriviaSheetQuestion;
-  $('#triviaShow').onclick=()=>{const d=triviaDraft();if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}const sheetId=loadedSheetQuestionId;const sent=triviaSend('triviaSetQuestion',d);if(!sent)return;setTriviaStatus('QUESTION READY');note('Question sent to Cloudflare');if(sheetId)markLoadedTriviaUsed(sheetId)};
+  $('#triviaShow').onclick=()=>{const d=triviaDraft();if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}const sheetId=loadedSheetQuestionId;const sent=triviaSend('triviaSetQuestion',d);if(!sent)return;setTriviaStatus('QUESTION READY');note('Question sent to Cloudflare');if(sheetId)markLoadedTriviaUsed(sheetId);$('#triviaNumber').value=Math.max(1,Number(d.questionNumber||1)+1);};
   $('#triviaOpen').onclick=()=>{triviaSend('triviaOpen');setTriviaStatus('ANSWERS OPEN');note('Answers opened')};
   $('#triviaClose').onclick=()=>{triviaSend('triviaClose');setTriviaStatus('ANSWERS CLOSED');note('Answers closed')};
   $('#triviaReveal').onclick=()=>{triviaSend('triviaReveal');setTriviaStatus(`ANSWER REVEALED • ${$('#triviaCorrect').value}`);note('Answer revealed')};
