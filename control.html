@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=10,user-scalable=yes,viewport-fit=cover">
+<title>Mobile Overlay Control</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0e0f12;color:#f6f7f9}button,input,select{font:inherit}main{max-width:900px;margin:auto;padding:14px 14px 90px}.top{position:sticky;top:0;z-index:20;background:rgba(14,15,18,.96);backdrop-filter:blur(8px);padding:10px 0}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.grow{flex:1}.status{font-size:13px;opacity:.75}.tabs{display:flex;gap:8px;margin-top:10px}.tab{padding:10px 14px;border-radius:12px;border:1px solid #30343b;background:#17191e;color:#fff}.tab.active{background:#f3f4f6;color:#111}.panel{display:none;margin-top:14px}.panel.active{display:block}.card{border:1px solid #2c3037;background:#15171b;border-radius:16px;padding:12px}.library{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}.media-card{border:1px solid #2b3037;border-radius:15px;background:#15171b;overflow:hidden}.preview{aspect-ratio:16/10;background:#090a0c;display:flex;align-items:center;justify-content:center;overflow:hidden}.preview img,.preview video{width:100%;height:100%;object-fit:contain}.info{padding:10px}.name{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:12px;opacity:.65;margin-top:3px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.actions button,.bigbtn{border:0;border-radius:12px;min-height:44px;font-weight:800}.play{background:#f4f5f7;color:#111}.secondary{background:#252932;color:#fff}.danger{background:#782a2a;color:#fff}.clear{position:fixed;z-index:30;bottom:12px;left:50%;transform:translateX(-50%);width:min(860px,calc(100% - 24px));min-height:58px;border:0;border-radius:16px;background:#c93b3b;color:white;font-weight:900;font-size:18px}.uploadbox{border:2px dashed #343942;border-radius:18px;padding:18px;text-align:center}.uploadbox input{width:100%;margin:10px 0}.field{width:100%;padding:10px;border-radius:11px;border:1px solid #353a43;background:#111318;color:white;font-size:13px}select.field{font-size:12px;padding:9px 7px}.settings{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}.login{position:fixed;inset:0;z-index:99;background:#0e0f12;display:flex;align-items:center;justify-content:center;padding:18px}.loginbox{width:min(420px,100%);border:1px solid #30343b;background:#15171b;border-radius:20px;padding:20px}.loginbox h1{margin-top:0}.hidden{display:none!important}.toast{position:fixed;z-index:120;top:14px;left:50%;transform:translateX(-50%);background:#242831;border:1px solid #3a404b;padding:10px 14px;border-radius:12px;display:none;max-width:90%}
+.current-park-card,.timer-card{margin-top:14px;padding:14px;border:1px solid #2c3037;border-radius:16px;background:#15171b}.current-park-card select,.timer-card input{width:100%;min-height:46px;font-size:16px}.timer-display{font-variant-numeric:tabular-nums;font-size:34px;font-weight:900;text-align:center;padding:10px 0}.timer-state{text-align:center;font-size:12px;opacity:.7}.timer-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:9px}.timer-actions.two{grid-template-columns:1fr 1fr}.timer-actions button{min-height:48px}
+
+.ride-setup-toolbar{display:grid;grid-template-columns:1fr auto;gap:9px;margin-bottom:12px}.ride-setup-list{display:grid;gap:10px}.ride-setup-row{border:1px solid #2c3037;background:#15171b;border-radius:14px;padding:11px}.ride-original{font-size:12px;opacity:.65;margin-bottom:7px}.ride-setup-row input[type="text"]{width:100%;min-height:44px}.ride-setup-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.omit-line{display:flex;align-items:center;gap:9px;min-height:44px;margin-top:7px}.omit-line input{width:22px;height:22px}.timer-reported{text-align:center;font-size:13px;opacity:.82;margin-top:5px}.timer-card select{width:100%;min-height:46px;font-size:16px}
+
+/* Trivia controller accessibility */
+.trivia-card{padding:16px}
+.trivia-card h2{margin:0 0 6px}
+.trivia-status{margin:12px 0;padding:14px;border:2px solid #4a505c;border-radius:14px;text-align:center;font-size:20px;font-weight:900;letter-spacing:.04em}
+.trivia-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.trivia-grid .field{min-height:54px;font-size:17px}
+.trivia-question{min-height:92px;resize:vertical}
+.trivia-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.trivia-actions .bigbtn{min-height:58px;font-size:16px}
+.trivia-wide{grid-column:1/-1}
+.trivia-answer-label{display:flex;gap:8px;align-items:center}
+.trivia-answer-label strong{width:24px;font-size:18px}
+.trivia-answer-label input{flex:1}
+.trivia-sheet-tools{margin:12px 0 16px;padding:14px;border:1px solid #3a4050;border-radius:14px;background:#111318}
+.trivia-sheet-meta{margin-top:9px;font-size:13px;opacity:.82}
+.trivia-sheet-tools .bigbtn{width:100%;min-height:56px;margin-top:10px}
+@media(max-width:600px){.trivia-grid,.trivia-actions{grid-template-columns:1fr}.trivia-wide{grid-column:auto}}
+
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+<div id="login" class="login">
+  <div class="loginbox"><h1>Overlay Control</h1><p>Enter your private control key. It stays in this browser tab only.</p><input id="keyInput" class="field" type="password" autocomplete="current-password" placeholder="Control key"><button id="loginBtn" class="bigbtn play" style="width:100%;margin-top:10px">CONNECT</button><p class="status">Room: <span id="loginRoom"></span></p></div>
+</div>
+<main>
+<div class="top">
+  <div class="row"><div class="grow"><strong>Mobile Overlay</strong><div id="conn" class="status">Disconnected</div></div><button id="logout" class="tab">Lock</button></div>
+  <div class="tabs" style="overflow-x:auto"><button class="tab active" data-tab="library">Library</button><button class="tab" data-tab="upload">Upload</button><button class="tab" data-tab="text">Text</button><button class="tab" data-tab="rides">Parks</button><button class="tab" data-tab="rideSettings">Ride Setup</button><button class="tab" data-tab="trivia">Trivia</button><button class="tab" data-tab="streamerbot">Streamer.bot Test</button></div>
+</div>
+
+<section id="library" class="panel active">
+  <div class="row" style="margin-bottom:10px"><button id="refresh" class="tab">Refresh</button><div id="count" class="status"></div></div>
+  <div class="media-search" style="margin-bottom:10px">
+    <input id="imageSearch" class="field" type="search" placeholder="Search images…" autocomplete="off" />
+  </div>
+  <div id="libraryGrid" class="library"></div>
+</section>
+
+<section id="upload" class="panel">
+  <div class="uploadbox"><h2>Add media</h2><p>Images, GIFs, MP4/WebM video, or audio. Recommended mobile limit: 75 MB per file.</p><input id="fileInput" type="file" accept="image/*,video/mp4,video/webm,audio/*"><button id="uploadBtn" class="bigbtn play" style="width:100%">UPLOAD TO CLOUD</button><div id="uploadStatus" class="status" style="margin-top:10px"></div></div>
+
+</section>
+
+<section id="text" class="panel">
+  <div class="card"><h2>Text overlay</h2><input id="textValue" class="field" maxlength="300" placeholder="Type your message"><div class="settings"><select id="textPos" class="field"><option value="bottom">Bottom</option><option value="top">Top</option></select><select id="textMode" class="field"><option value="static">Static</option><option value="scroll">Scroll left</option></select></div><div class="settings"><label class="card" style="padding:8px">Text color<input id="textColor" class="field" type="color" value="#ffffff" style="height:48px;padding:4px;margin-top:6px"></label><label class="card" style="padding:8px">Text size<select id="textSize" class="field" style="margin-top:6px"><option value="32">Small</option><option value="48" selected>Medium</option><option value="64">Large</option><option value="84">Extra large</option></select></label></div><div class="settings"><label class="card" style="padding:8px">Font<select id="textFont" class="field" style="margin-top:6px"><option value="system" selected>System</option><option value="arial">Arial</option><option value="georgia">Georgia</option><option value="impact">Impact</option><option value="comic">Comic Sans</option></select></label><label class="card" style="padding:8px">Scroll speed<select id="textSpeed" class="field" style="margin-top:6px"><option value="18">Slow</option><option value="12" selected>Normal</option><option value="8">Fast</option></select></label></div><button id="showText" class="bigbtn play" style="width:100%">SHOW / UPDATE TEXT</button><button id="hideText" class="bigbtn secondary" style="width:100%">HIDE TEXT</button></div>
+</section>
+
+<section id="rides" class="panel">
+  <div class="card">
+    <h2 style="margin-top:0">Parks</h2>
+    <p class="status">Ride waits and weather are independent overlay layers. You can show both at the same time.</p>
+
+    <div class="current-park-card">
+      <div class="name">Current Park</div>
+      <div class="meta">Weather, radar and ride waits use this selection.</div>
+      <select id="currentPark" class="field" style="margin-top:9px">
+        <option value="mk">Magic Kingdom</option><option value="epcot">EPCOT</option><option value="hs">Hollywood Studios</option><option value="ak">Animal Kingdom</option><option value="springs">Disney Springs</option>
+      </select>
+      <div id="currentParkNote" class="meta" style="margin-top:7px"></div>
+    </div>
+    <div id="parkGrid" class="library" style="margin-top:12px"></div>
+
+    <div class="media-card" style="margin-top:14px">
+      <div class="info">
+        <div class="name">Live Radar</div>
+        <div class="meta">On-demand recent radar loop. Stops loading when hidden.</div>
+        <div class="settings" style="margin-top:8px">
+          <select id="radarPark" class="field" style="display:none">
+            <option value="wdw" selected>Walt Disney World</option>
+            <option value="mk">Magic Kingdom</option>
+            <option value="epcot">EPCOT</option>
+            <option value="hs">Hollywood Studios</option>
+            <option value="ak">Animal Kingdom</option>
+            <option value="springs">Disney Springs</option>
+          </select>
+          <select id="radarPos" class="field">
+            <option value="center" selected>Center</option>
+            <option value="top">Top center</option>
+            <option value="bottom">Bottom center</option>
+            <option value="left">Left center</option>
+            <option value="right">Right center</option>
+            <option value="top-left">Top left</option>
+            <option value="top-right">Top right</option>
+            <option value="bottom-left">Bottom left</option>
+            <option value="bottom-right">Bottom right</option>
+          </select>
+        </div>
+        <div class="settings">
+          <select id="radarSize" class="field">
+            <option value="30">30% size</option>
+            <option value="40">40% size</option>
+            <option value="55" selected>55% size</option>
+            <option value="70">70% size</option>
+            <option value="85">85% size</option>
+            <option value="100">100% size</option>
+          </select>
+          <select id="radarZoom" class="field">
+            <option value="7">Close</option>
+            <option value="6" selected>Medium</option>
+            <option value="5">Wide</option>
+          </select>
+        </div>
+        <div class="settings">
+          <button id="showRadar" class="bigbtn play">SHOW RADAR</button>
+          <button id="hideRadar" class="bigbtn secondary">HIDE RADAR</button>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="timer-card">
+      <div class="name">Line Timer</div>
+      <div class="meta">Persistent queue stopwatch. Timing and on-screen visibility are independent.</div>
+      <select id="timerPark" class="field" style="margin-top:10px">
+        <option value="mk">Magic Kingdom</option>
+        <option value="epcot">EPCOT</option>
+        <option value="hs">Hollywood Studios</option>
+        <option value="ak">Animal Kingdom</option>
+        <option value="springs">Disney Springs</option>
+      </select>
+      <select id="timerRide" class="field" style="margin-top:8px"><option value="">Loading rides…</option></select>
+      <input id="timerName" class="field" maxlength="80" placeholder="Custom attraction / line name" style="margin-top:8px;display:none">
+      <div id="timerReported" class="timer-reported">Reported wait at start: —</div>
+      <div id="timerDisplay" class="timer-display">00:00:00</div>
+      <div id="timerState" class="timer-state">Stopped • Hidden</div>
+      <div class="timer-actions"><button id="timerStart" class="bigbtn play">START</button><button id="timerStop" class="bigbtn secondary">STOP</button><button id="timerReset" class="bigbtn secondary">RESET</button></div>
+      <div class="timer-actions two"><button id="timerShow" class="bigbtn play">SHOW</button><button id="timerHide" class="bigbtn secondary">HIDE</button></div>
+    </div>
+
+    <div class="settings" style="margin-top:12px">
+      <button id="hideRideWait" class="bigbtn secondary">HIDE RIDE WAITS</button>
+      <button id="hideWeather" class="bigbtn secondary">HIDE WEATHER</button>
+    </div>
+  </div>
+</section>
+
+<section id="rideSettings" class="panel">
+  <div class="card">
+    <h2 style="margin-top:0">Ride Setup</h2>
+    <p class="status">Rename attractions or omit them from the rotating Ride Waits list. Settings are saved in this cloud room.</p>
+    <div class="ride-setup-toolbar">
+      <select id="rideSettingsPark" class="field">
+        <option value="mk">Magic Kingdom</option><option value="epcot">EPCOT</option><option value="hs">Hollywood Studios</option><option value="ak">Animal Kingdom</option>
+      </select>
+      <button id="rideSettingsRefresh" class="tab">Refresh</button>
+    </div>
+    <input id="rideSettingsSearch" class="field" placeholder="Search attractions" style="margin-bottom:12px">
+    <div id="rideSettingsList" class="ride-setup-list"><div class="status">Open this tab to load attractions.</div></div>
+  </div>
+</section>
+
+
+
+<section id="trivia" class="panel">
+  <div class="card trivia-card">
+    <h2>Trivia Control</h2>
+    <p class="status">Load an unused enabled question from Google Sheets, review it, then run the existing trivia controls.</p>
+    <div id="triviaStatus" class="trivia-status">IDLE</div>
+
+    <div class="trivia-sheet-tools">
+      <div class="trivia-grid">
+        <label class="card" style="padding:10px">Category
+          <select id="triviaSheetCategory" class="field" style="margin-top:7px">
+            <option value="">All categories</option>
+            <option value="Disney Parks">Disney Parks</option>
+          </select>
+        </label>
+        <label class="card" style="padding:10px">Difficulty
+          <select id="triviaSheetDifficulty" class="field" style="margin-top:7px">
+            <option value="">All difficulties</option>
+            <option value="Easy">Easy</option>
+            <option value="Medium">Medium</option>
+            <option value="Hard">Hard</option>
+          </select>
+        </label>
+      </div>
+      <button id="triviaLoadQuestion" class="bigbtn play">🎲 LOAD RANDOM QUESTION</button>
+      <div id="triviaSheetMeta" class="trivia-sheet-meta">Google Sheet ready • no question loaded</div>
+    </div>
+
+    <label class="status" for="triviaQuestion">Question</label>
+    <textarea id="triviaQuestion" class="field trivia-question" maxlength="500" placeholder="Type the trivia question"></textarea>
+
+    <div class="trivia-grid" style="margin-top:10px">
+      <label class="trivia-answer-label"><strong>A</strong><input id="triviaA" class="field" maxlength="180" placeholder="Answer A"></label>
+      <label class="trivia-answer-label"><strong>B</strong><input id="triviaB" class="field" maxlength="180" placeholder="Answer B"></label>
+      <label class="trivia-answer-label"><strong>C</strong><input id="triviaC" class="field" maxlength="180" placeholder="Answer C"></label>
+      <label class="trivia-answer-label"><strong>D</strong><input id="triviaD" class="field" maxlength="180" placeholder="Answer D"></label>
+    </div>
+
+    <div class="settings">
+      <label class="card" style="padding:10px">Correct answer
+        <select id="triviaCorrect" class="field" style="margin-top:7px">
+          <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+        </select>
+      </label>
+      <label class="card" style="padding:10px">Question #
+        <input id="triviaNumber" class="field" type="number" min="1" value="1" style="margin-top:7px">
+      </label>
+    </div>
+
+    <label class="status" for="triviaExplanation">Explanation / fun fact</label>
+    <textarea id="triviaExplanation" class="field" maxlength="500" placeholder="Shown after the answer is revealed" style="min-height:74px;resize:vertical"></textarea>
+
+    <div class="trivia-actions">
+      <button id="triviaShow" class="bigbtn play trivia-wide">SHOW QUESTION</button>
+      <button id="triviaOpen" class="bigbtn play">OPEN ANSWERS</button>
+      <button id="triviaClose" class="bigbtn secondary">CLOSE ANSWERS</button>
+      <button id="triviaReveal" class="bigbtn play trivia-wide">REVEAL ANSWER</button>
+      <button id="triviaLeaderboard" class="bigbtn secondary">SHOW LEADERBOARD</button>
+      <button id="triviaHide" class="bigbtn secondary">HIDE TRIVIA</button>
+      <button id="triviaReset" class="bigbtn danger trivia-wide">RESET GAME</button>
+    </div>
+    <div id="triviaAnswerCount" class="status" style="text-align:center;margin-top:12px">0 answers received</div>
+  </div>
+</section>
+
+<section id="streamerbot" class="panel">
+  <div class="card">
+    <h2>Streamer.bot Test</h2>
+    <p class="status">This uses the same protected Cloudflare command endpoint that Streamer.bot will use from home.</p>
+    <input id="sbTestTextValue" class="field" value="VIP GREETING TEST" maxlength="120" style="margin:10px 0" />
+    <div class="settings">
+      <select id="sbTestTextPos" class="field"><option value="bottom">Bottom</option><option value="top">Top</option></select>
+      <select id="sbTestTextSize" class="field"><option value="36">36</option><option value="48" selected>48</option><option value="64">64</option><option value="80">80</option></select>
+    </div>
+    <div class="actions" style="margin-top:10px">
+      <button id="sbTestTextBtn" class="bigbtn play">TEST TEXT</button>
+      <button id="sbTestClearBtn" class="bigbtn stop">TEST CLEAR</button>
+    </div>
+    <div id="sbTestStatus" class="status" style="margin-top:10px">Ready.</div>
+  </div>
+</section>
+</main>
+<button id="clear" class="clear">CLEAR SCREEN</button>
+<script>
+(() => {
+  const q=new URLSearchParams(location.search),room=q.get('room')||'mobiletest';
+  let key=sessionStorage.getItem('overlayControlKey')||'',ws=null,retry=1000;
+  const $=s=>document.querySelector(s),grid=$('#libraryGrid'),conn=$('#conn'),toast=$('#toast');
+  $('#loginRoom').textContent=room;
+  const note=(m)=>{toast.textContent=m;toast.style.display='block';clearTimeout(note.t);note.t=setTimeout(()=>toast.style.display='none',2200)};
+  function authHeaders(extra={}){return {'X-Control-Key':key,...extra}}
+  async function api(path,opts={}){opts.headers=authHeaders(opts.headers||{});const r=await fetch(path,opts);if(r.status===401){lock();throw new Error('Unauthorized')}const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||`Request failed (${r.status})`);return data}
+  function lock(){key='';sessionStorage.removeItem('overlayControlKey');try{ws?.close()}catch{};$('#login').classList.remove('hidden');conn.textContent='Locked'}
+  async function unlock(){const k=$('#keyInput').value.trim();if(!k)return;key=k;try{await api('/api/media/list');sessionStorage.setItem('overlayControlKey',key);$('#login').classList.add('hidden');connect();loadLibrary()}catch(e){key='';note('Control key not accepted')}}
+  $('#loginBtn').onclick=unlock;$('#keyInput').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});$('#logout').onclick=lock;
+  function connect(){
+    try{ws?.close()}catch{};const proto=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}?role=control&key=${encodeURIComponent(key)}`);
+    ws.onopen=()=>{retry=1000;conn.textContent=`Connected • ${room}`};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state')renderState(m.state||{})}catch{}};ws.onclose=e=>{if(!key)return;conn.textContent=e.code===1008?'Unauthorized':'Reconnecting…';setTimeout(connect,retry);retry=Math.min(retry*1.6,10000)};ws.onerror=()=>ws.close();
+  }
+  function cmd(payload){if(ws?.readyState===1){ws.send(JSON.stringify(payload));return true}else{note('Controller is reconnecting');return false}}
+  let latestState={currentPark:'mk',rideSettings:{},lineTimer:{name:'',rideKey:'',park:'mk',reportedWait:null,reportedStatus:'',running:false,visible:false,startedAt:null,accumulatedMs:0}};
+  const PARK_IDS={mk:6,epcot:5,hs:7,ak:8};
+
+  const PARK_NAMES={mk:'Magic Kingdom',epcot:'EPCOT',hs:'Hollywood Studios',ak:'Animal Kingdom',springs:'Disney Springs'};
+  const BASE_RIDE_DEFAULTS={
+    mk:{
+      "name:A Pirate's Adventure ~ Treasures of the Seven Seas":{displayName:'',omitted:true},
+      "name:Main Street Vehicles":{displayName:'',omitted:true},
+      "name:Casey Jr. Splash 'N' Soak Station":{displayName:'',omitted:true}
+    },
+    epcot:{"name:Journey of Water, Inspired by Moana":{displayName:'Moana – Journey of Water',omitted:false}},
+    hs:{"name:Millennium Falcon: Smugglers Run":{displayName:'Smugglers Run',omitted:false}},
+    ak:{"name:Expedition Everest - Legend of the Forbidden Mountain":{displayName:'Expedition Everest',omitted:false}}
+  };
+  let rideSetupData=[],timerRideData=[];
+  function rideKey(r){return r?.id!=null?`id:${r.id}`:`name:${r?.name||''}`}
+  function baseRideSetting(park,r){return BASE_RIDE_DEFAULTS[park]?.[`name:${r?.name||''}`]||null}
+  function customRideSetting(park,r){const ps=latestState.rideSettings?.[park]||{};return ps[rideKey(r)]||ps[`name:${r?.name||''}`]||null}
+  function effectiveRideSetting(park,r){return customRideSetting(park,r)||baseRideSetting(park,r)||{displayName:'',omitted:false}}
+  function displayRideName(park,r){const s=effectiveRideSetting(park,r);return (s.displayName||r?.name||'Attraction').trim()}
+  function flattenRides(data){const a=[];for(const land of (data?.lands||[]))for(const r of (land.rides||[]))if(r?.name)a.push(r);return a.sort((x,y)=>String(x.name).localeCompare(String(y.name)))}
+  async function fetchParkRides(park){if(!PARK_IDS[park])return[];const r=await fetch(`/ride-waits-data?park=${PARK_IDS[park]}`,{cache:'no-store'});if(!r.ok)throw new Error(`Ride data HTTP ${r.status}`);return flattenRides(await r.json())}
+  function waitLabel(r){if(typeof r?.wait_time==='number')return `${r.wait_time} min`;return r?.is_open===false?'Closed':'—'}
+
+  function selectedPark(){return $('#currentPark')?.value||latestState.currentPark||'mk'}
+  function selectedTimerPark(){return $('#timerPark')?.value||latestState.lineTimer?.park||selectedPark()||'mk'}
+  function fmtElapsed(ms){const t=Math.floor(Math.max(0,Number(ms||0))/1000);return [Math.floor(t/3600),Math.floor((t%3600)/60),t%60].map(v=>String(v).padStart(2,'0')).join(':')}
+  function timerElapsed(t){let ms=Math.max(0,Number(t?.accumulatedMs||0));if(t?.running&&t.startedAt)ms+=Math.max(0,Date.now()-Number(t.startedAt));return ms}
+  function renderState(s){
+    if(s)latestState={...latestState,...s,lineTimer:{...latestState.lineTimer,...(s.lineTimer||{})},trivia:{...(latestState.trivia||{}),...(s.trivia||{})}};
+    const park=latestState.currentPark||'mk';
+    if($('#waitDisplayMode') && latestState.rideWait){$('#waitDisplayMode').value=(latestState.rideWait.ticker||latestState.rideWait.displayMode==='ticker')?'ticker':'card'}
+    if($('#currentPark')&&$('#currentPark').value!==park)$('#currentPark').value=park;
+    if($('#currentParkNote'))$('#currentParkNote').textContent=park==='springs'?'Ride Waits are unavailable at Disney Springs. Weather and Radar still work.':'';
+    const t=latestState.lineTimer||{};
+    if($('#timerPark') && document.activeElement!==$('#timerPark')){
+      const timerPark=t.park||park;
+      if($('#timerPark').value!==timerPark)$('#timerPark').value=timerPark;
+    }
+    if($('#timerDisplay'))$('#timerDisplay').textContent=fmtElapsed(timerElapsed(t));
+    if($('#timerState'))$('#timerState').textContent=`${t.running?'Running':'Stopped'} • ${t.visible?'On screen':'Hidden'}`;
+    if($('#timerReported')){const rep=typeof t.reportedWait==='number'?`${t.reportedWait} min`:(t.reportedStatus||'—');$('#timerReported').textContent=`Reported wait at start: ${rep}`}
+    if($('#rideSettingsPark')&&document.activeElement!==$('#rideSettingsPark'))$('#rideSettingsPark').value=park==='springs'?'mk':park;
+    const tr=latestState.trivia||{};
+    if($('#triviaStatus')){
+      const labels={idle:'IDLE',question:'QUESTION READY',open:'ANSWERS OPEN',closed:'ANSWERS CLOSED',revealed:`ANSWER REVEALED${tr.correct?' • '+tr.correct:''}`,leaderboard:'LEADERBOARD'};
+      $('#triviaStatus').textContent=tr.visible===false&&tr.phase!=='idle'?'HIDDEN':(labels[tr.phase]||String(tr.phase||'IDLE').toUpperCase());
+    }
+    if($('#triviaAnswerCount')){const n=Math.max(0,Number(tr.answerCount||0));$('#triviaAnswerCount').textContent=`${n} answer${n===1?'':'s'} received`;}
+  }
+  setInterval(()=>renderState(),250);
+  const fmt=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
+  function esc(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+  async function loadLibrary(){
+    grid.innerHTML='<div class="status">Loading…</div>';
+    try{
+      const d=await api('/api/media/list');
+      $('#count').textContent=`${d.items.length} item${d.items.length===1?'':'s'}`;
+      grid.innerHTML='';
+      if(!d.items.length){
+        grid.innerHTML='<div class="card">No media yet. Open Upload to add your first graphic or video.</div>';
+        return;
+      }
+      d.items.forEach(renderCard);
+      filterImageLibrary();
+    }catch(e){
+      grid.innerHTML=`<div class="card">${esc(e.message)}</div>`;
+    }
+  }
+  function renderCard(item){
+    const card=document.createElement('div');card.className='media-card';card.dataset.name=item.name||'';
+    const prev=item.kind==='image'?`<img loading="eager" decoding="async" src="${item.url}" alt="${esc(item.name)}">`:item.kind==='video'?`<video preload="metadata" muted src="${item.url}"></video>`:`<div>${item.kind.toUpperCase()}</div>`;
+
+    const imageControls=item.kind==='image'
+      ? `<div class="settings">
+          <select class="field size">
+            <option value="5">5% size</option>
+            <option value="10">10% size</option>
+            <option value="15">15% size</option>
+            <option value="20">20% size</option>
+            <option value="25">25% size</option>
+            <option value="30">30% size</option>
+            <option value="35">35% size</option>
+            <option value="40" selected>40% size</option>
+            <option value="50">50% size</option>
+            <option value="60">60% size</option>
+            <option value="75">75% size</option>
+            <option value="90">90% size</option>
+            <option value="100">100% size</option>
+          </select>
+          <select class="field dur">
+            <option value="0">Stay on + layer</option><option value="5000">5 sec</option><option value="8000">8 sec</option><option value="10000">10 sec</option>
+          </select>
+          <select class="field anim">
+            <option value="none" selected>No animation</option>
+            <option value="pulse">Pulse</option>
+            <option value="jiggle">Jiggle</option>
+            <option value="bounce">Bounce</option>
+            <option value="wiggle">Wiggle</option>
+            <option value="float">Float</option>
+            <option value="heartbeat">Heartbeat</option>
+            <option value="spin">Spin</option>
+          </select>
+        </div>
+`
+      : '';
+
+    card.innerHTML=`<div class="preview">${prev}</div><div class="info"><div class="name" title="${esc(item.name)}">${esc(item.name)}</div><div class="meta">${esc(item.kind)} • ${fmt(item.size)}</div><div class="settings"><select class="field pos"><option value="center">Center</option><option value="top">Top center</option><option value="bottom">Bottom center</option><option value="left">Left center</option><option value="right">Right center</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option></select><span></span></div>${imageControls}<div class="actions"><button class="play show">${item.kind==='video'?'PLAY':'SHOW'}</button><button class="secondary rename">RENAME</button><button class="danger delete">DELETE</button><button class="secondary hide">HIDE/STOP</button></div></div>`;
+
+
+    if(item.kind==='image'){
+      const thumb=card.querySelector('.preview img');
+      if(thumb){
+        let retried=false;
+        thumb.onerror=()=>{
+          if(retried)return;
+          retried=true;
+          const join=item.url.includes('?')?'&':'?';
+          thumb.src=`${item.url}${join}thumbRetry=${Date.now()}`;
+        };
+      }
+    }
+
+    const pos=card.querySelector('.pos'),dur=card.querySelector('.dur'),size=card.querySelector('.size'),anim=card.querySelector('.anim');
+
+    card.querySelector('.show').onclick=()=>{
+      if(item.kind==='image')cmd({
+        action:'showImage',
+        src:item.url,
+        duration:Number(dur?.value||0),
+        position:pos.value,
+        animation:anim?.value||'none',
+        size:Number(size?.value||40)
+      });
+      else if(item.kind==='video')cmd({action:'playVideo',src:item.url,position:pos.value,volume:1});
+      else note('Audio-only playback is not enabled yet')
+    };
+
+    card.querySelector('.hide').onclick=()=>cmd(
+      item.kind==='video'
+        ? {action:'stopVideo'}
+: {action:'hideImage',src:item.url}
+    );
+
+    card.querySelector('.delete').onclick=async()=>{
+      if(!confirm(`Delete “${item.name}” permanently from cloud storage?`))return;
+      try{
+        await api('/api/media/delete',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key:item.key})});
+        if(item.kind==='image')cmd({action:'hideImage',src:item.url});
+        note('Deleted');loadLibrary()
+      }catch(e){note(e.message)}
+    };
+
+    card.querySelector('.rename').onclick=async()=>{
+      const name=prompt('New display name:',item.name);
+      if(!name||name===item.name)return;
+      try{
+        await api('/api/media/rename',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key:item.key,name})});
+        note('Renamed');loadLibrary()
+      }catch(e){note(e.message)}
+    };
+
+    grid.appendChild(card);
+  }
+
+  const parks=[
+    {id:6,key:'mk',name:'Magic Kingdom',waits:true},
+    {id:5,key:'epcot',name:'EPCOT',waits:true},
+    {id:7,key:'hs',name:'Hollywood Studios',waits:true},
+    {id:8,key:'ak',name:'Animal Kingdom',waits:true},
+    {id:null,key:'springs',name:'Disney Springs',waits:false}
+  ];
+
+  function positionOptions(defaultValue){
+    const opts=[
+      ['bottom','Bottom center'],['top','Top center'],['center','Center'],
+      ['left','Left center'],['right','Right center'],
+      ['top-left','Top left'],['top-right','Top right'],
+      ['bottom-left','Bottom left'],['bottom-right','Bottom right']
+    ];
+    return opts.map(([v,l])=>`<option value="${v}" ${v===defaultValue?'selected':''}>${l}</option>`).join('');
+  }
+
+
+  async function loadRideSetup(){
+    const park=$('#rideSettingsPark')?.value||'mk',list=$('#rideSettingsList');if(!list)return;
+    list.innerHTML='<div class="status">Loading attractions…</div>';
+    try{rideSetupData=await fetchParkRides(park);renderRideSetupList()}catch(e){list.innerHTML=`<div class="card">${esc(e.message)}</div>`}
+  }
+  function renderRideSetupList(){
+    const park=$('#rideSettingsPark')?.value||'mk',list=$('#rideSettingsList');if(!list)return;
+    const q=String($('#rideSettingsSearch')?.value||'').trim().toLowerCase();list.innerHTML='';
+    const rows=rideSetupData.filter(r=>!q||r.name.toLowerCase().includes(q)||displayRideName(park,r).toLowerCase().includes(q));
+    if(!rows.length){list.innerHTML='<div class="status">No matching attractions.</div>';return}
+    for(const r of rows){
+      const key=rideKey(r),eff=effectiveRideSetting(park,r),custom=customRideSetting(park,r),row=document.createElement('div');row.className='ride-setup-row';
+      row.innerHTML=`<div class="name">${esc(displayRideName(park,r))}</div><div class="ride-original">API name: ${esc(r.name)} • Current wait: ${esc(waitLabel(r))}</div><input class="field renameRide" type="text" maxlength="80" value="${esc(eff.displayName||'')}" placeholder="Leave blank to use API name"><label class="omit-line"><input class="omitRide" type="checkbox" ${eff.omitted?'checked':''}> Omit from rotating wait-times overlay</label><div class="ride-setup-actions"><button class="bigbtn play saveRide">SAVE</button><button class="bigbtn secondary resetRide">RESET</button></div>`;
+      row.querySelector('.saveRide').onclick=()=>{cmd({action:'rideSettingSet',park,key,displayName:row.querySelector('.renameRide').value,omitted:row.querySelector('.omitRide').checked});note('Ride setting saved')};
+      row.querySelector('.resetRide').onclick=()=>{cmd({action:'rideSettingReset',park,key});setTimeout(()=>{renderRideSetupList();loadTimerRides()},160);note('Restored default')};
+      list.appendChild(row);
+    }
+  }
+  async function loadTimerRides(){
+    const park=selectedTimerPark(),sel=$('#timerRide');if(!sel)return;
+    if(park==='springs'){timerRideData=[];sel.innerHTML='<option value="__custom__">Custom / Other line</option>';sel.value='__custom__';syncTimerCustomField();return}
+    const previous=sel.value;sel.innerHTML='<option value="">Loading rides…</option>';
+    try{
+      const all=await fetchParkRides(park);timerRideData=all.filter(r=>!effectiveRideSetting(park,r).omitted);
+      sel.innerHTML=timerRideData.map(r=>`<option value="${esc(rideKey(r))}">${esc(displayRideName(park,r))} • ${esc(waitLabel(r))}</option>`).join('')+'<option value="__custom__">Custom / Other line</option>';
+      const stored=latestState.lineTimer?.park===park?latestState.lineTimer?.rideKey:'';
+      if(timerRideData.some(r=>rideKey(r)===(stored||previous)))sel.value=stored||previous;else if(timerRideData.length)sel.value=rideKey(timerRideData[0]);else sel.value='__custom__';
+      syncTimerCustomField();configureTimerSelection();
+    }catch(e){timerRideData=[];sel.innerHTML='<option value="__custom__">Custom / Other line</option>';sel.value='__custom__';syncTimerCustomField();note('Could not refresh timer rides')}
+  }
+  function selectedTimerRide(){const key=$('#timerRide')?.value||'';return timerRideData.find(r=>rideKey(r)===key)||null}
+  function syncTimerCustomField(){const custom=$('#timerRide')?.value==='__custom__',input=$('#timerName');if(input){input.style.display=custom?'block':'none';if(custom&&document.activeElement!==input&&latestState.lineTimer?.rideKey==='')input.value=latestState.lineTimer?.name||''}}
+  function configureTimerSelection(){
+    const park=selectedTimerPark(),r=selectedTimerRide(),custom=$('#timerRide')?.value==='__custom__';syncTimerCustomField();
+    if(custom){cmd({action:'timerConfigure',park,rideKey:'',name:$('#timerName').value||'Line Timer'});return}
+    if(r)cmd({action:'timerConfigure',park,rideKey:rideKey(r),name:displayRideName(park,r)});
+  }
+  async function startSelectedTimer(){
+    const park=selectedTimerPark(),custom=$('#timerRide')?.value==='__custom__';
+    if(custom){cmd({action:'timerStart',park,rideKey:'',name:$('#timerName').value||'Line Timer',reportedWait:null,reportedStatus:''});return}
+    let r=selectedTimerRide();
+    try{const fresh=await fetchParkRides(park);const key=$('#timerRide').value;r=fresh.find(x=>rideKey(x)===key)||r;if(r)timerRideData=timerRideData.map(x=>rideKey(x)===key?r:x)}catch{}
+    if(!r){note('Choose a ride first');return}
+    cmd({action:'timerStart',park,rideKey:rideKey(r),name:displayRideName(park,r),reportedWait:typeof r.wait_time==='number'?r.wait_time:null,reportedStatus:r.is_open===false?'Closed':''});
+  }
+
+  function renderParkCards(){
+    const parkGrid=$('#parkGrid');if(!parkGrid)return;
+    parkGrid.innerHTML=`<div class="media-card"><div class="info">
+      <div class="name">Park Overlays</div>
+      <div class="meta">These controls use Current Park above.</div>
+      <div class="meta" style="margin-top:10px"><strong>Ride Waits</strong></div>
+      <div class="settings"><select class="field" id="ridePos">${positionOptions('bottom')}</select><select class="field" id="rideSize"><option value="2">2% size</option><option value="3">3% size</option><option value="5">5% size</option><option value="7">7% size</option><option value="10">10% size</option><option value="15">15% size</option><option value="20" selected>20% size</option><option value="30">30% size</option><option value="40">40% size</option><option value="50">50% size</option><option value="60">60% size</option><option value="75">75% size</option></select></div>
+      <div class="settings"><select class="field" id="rideCycle">
+            <option value="5">5 sec</option>
+            <option value="10" selected>10 sec</option>
+            <option value="15">15 sec</option>
+            <option value="20">20 sec</option>
+            <option value="30">30 sec</option>
+            <option value="45">45 sec</option>
+            <option value="60">60 sec</option>
+            <option value="90">90 sec</option>
+            <option value="120">120 sec</option>
+</select><select id="waitDisplayMode" class="field" style="margin-bottom:8px">
+            <option value="card" selected>Card</option>
+            <option value="ticker">Ticker</option>
+          </select>
+          <button id="currentRideShow" class="bigbtn play">SHOW WAITS</button></div>
+      <div class="meta" style="margin-top:10px"><strong>Weather</strong></div>
+      <div class="settings"><select class="field" id="weatherPos">${positionOptions('top-right')}</select><select class="field" id="weatherSize"><option value="10">10% size</option><option value="15">15% size</option><option value="20">20% size</option><option value="25">25% size</option><option value="30">30% size</option><option value="40" selected>40% size</option><option value="50">50% size</option><option value="60">60% size</option><option value="75">75% size</option><option value="100">100% size</option></select></div>
+      <div class="settings"><select class="field" id="weatherUnit"><option value="f" selected>Fahrenheit</option><option value="c">Celsius</option></select><button id="currentWeatherShow" class="bigbtn play">SHOW WEATHER</button></div>
+    </div></div>`;
+    $('#currentRideShow').onclick=()=>{const p=selectedPark();if(p==='springs'){note('Ride Waits are unavailable at Disney Springs');return}const mode=$('#waitDisplayMode')?.value==='ticker'?'ticker':'card';const action=mode==='ticker'?'showRideWaitTicker':'showRideWaitCard';cmd({action,parkKey:p,park:PARK_IDS[p],position:$('#ridePos').value,size:Number($('#rideSize').value),cycle:Number($('#rideCycle').value)});note(mode==='ticker'?'Showing Wait Times ticker':'Showing Wait Times card')};
+    $('#currentWeatherShow').onclick=()=>cmd({action:'showWeather',park:selectedPark(),position:$('#weatherPos').value,size:Number($('#weatherSize').value),unit:$('#weatherUnit').value});
+  }
+
+  renderParkCards();
+  $('#rideSettingsPark').onchange=loadRideSetup;
+  $('#rideSettingsRefresh').onclick=loadRideSetup;
+  $('#rideSettingsSearch').oninput=renderRideSetupList;
+  loadTimerRides();
+  $('#hideRideWait').onclick=()=>cmd({action:'hideRideWait'});
+  $('#hideWeather').onclick=()=>cmd({action:'hideWeather'});
+  $('#showRadar').onclick=()=>cmd({
+    action:'showRadar',
+    park:selectedPark(),
+    position:$('#radarPos').value,
+    size:Number($('#radarSize').value),
+    zoom:Number($('#radarZoom').value)
+  });
+  $('#hideRadar').onclick=()=>cmd({action:'hideRadar'});
+  $('#currentPark').onchange=()=>{cmd({action:'setCurrentPark',park:selectedPark()});renderState({currentPark:selectedPark()})};
+  $('#timerPark').onchange=()=>{loadTimerRides()};
+  $('#timerRide').onchange=configureTimerSelection;
+  $('#timerName').onchange=configureTimerSelection;
+  $('#timerStart').onclick=startSelectedTimer;
+  $('#timerStop').onclick=()=>cmd({action:'timerStop'});
+  $('#timerReset').onclick=()=>cmd({action:'timerReset'});
+  $('#timerShow').onclick=()=>cmd({action:'timerShow'});
+  $('#timerHide').onclick=()=>cmd({action:'timerHide'});
+
+
+  // Trivia controller + Google Sheet question loader.
+  let loadedSheetQuestionId='';
+  function setTriviaStatus(label){const el=$('#triviaStatus');if(el)el.textContent=label}
+  function triviaDraft(){
+    return {
+      questionNumber:Number($('#triviaNumber')?.value||1),
+      question:$('#triviaQuestion')?.value.trim()||'',
+      answers:{A:$('#triviaA')?.value.trim()||'',B:$('#triviaB')?.value.trim()||'',C:$('#triviaC')?.value.trim()||'',D:$('#triviaD')?.value.trim()||''},
+      correct:$('#triviaCorrect')?.value||'A',
+      explanation:$('#triviaExplanation')?.value.trim()||''
+    };
+  }
+  function triviaSend(action,extra={}){return cmd({action,...extra})}
+  async function loadTriviaSheetQuestion(){
+    const btn=$('#triviaLoadQuestion'),meta=$('#triviaSheetMeta');
+    const params=new URLSearchParams();
+    const category=$('#triviaSheetCategory')?.value||'';
+    const difficulty=$('#triviaSheetDifficulty')?.value||'';
+    if(category)params.set('category',category);
+    if(difficulty)params.set('difficulty',difficulty);
+    btn.disabled=true;btn.textContent='LOADING…';meta.textContent='Loading from Google Sheet…';
+    try{
+      const d=await api(`/api/${encodeURIComponent(room)}/trivia-question${params.toString()?'?'+params.toString():''}`);
+      const x=d.question||{};
+      loadedSheetQuestionId=String(x.id||'');
+      $('#triviaQuestion').value=x.question||'';
+      $('#triviaA').value=x.A||'';$('#triviaB').value=x.B||'';$('#triviaC').value=x.C||'';$('#triviaD').value=x.D||'';
+      $('#triviaCorrect').value=x.correct||'A';
+      $('#triviaExplanation').value=x.explanation||'';
+      meta.textContent=`Loaded #${x.id||'?'} • ${x.category||'Uncategorized'} • ${x.difficulty||'Unrated'} • ${d.remaining||0} eligible`;
+      note(`Loaded question #${x.id||''}`);
+    }catch(e){loadedSheetQuestionId='';meta.textContent=`Sheet error: ${e.message}`;note(e.message)}
+    finally{btn.disabled=false;btn.textContent='🎲 LOAD RANDOM QUESTION'}
+  }
+  async function markLoadedTriviaUsed(id){
+    if(!id)return;
+    try{
+      await api(`/api/${encodeURIComponent(room)}/trivia-mark-used`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});
+      if(loadedSheetQuestionId===id){$('#triviaSheetMeta').textContent+= ' • USED';loadedSheetQuestionId='';}
+    }catch(e){note(`Question shown, but Sheet Used update failed: ${e.message}`)}
+  }
+  $('#triviaLoadQuestion').onclick=loadTriviaSheetQuestion;
+  $('#triviaShow').onclick=()=>{const d=triviaDraft();if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}const sheetId=loadedSheetQuestionId;const sent=triviaSend('triviaSetQuestion',d);if(!sent)return;setTriviaStatus('QUESTION READY');note('Question sent to Cloudflare');if(sheetId)markLoadedTriviaUsed(sheetId);$('#triviaNumber').value=Math.max(1,Number(d.questionNumber||1)+1);};
+  $('#triviaOpen').onclick=()=>{triviaSend('triviaOpen');setTriviaStatus('ANSWERS OPEN');note('Answers opened')};
+  $('#triviaClose').onclick=()=>{triviaSend('triviaClose');setTriviaStatus('ANSWERS CLOSED');note('Answers closed')};
+  $('#triviaReveal').onclick=()=>{triviaSend('triviaReveal');setTriviaStatus(`ANSWER REVEALED • ${$('#triviaCorrect').value}`);note('Answer revealed')};
+  $('#triviaLeaderboard').onclick=()=>{triviaSend('triviaShowLeaderboard');setTriviaStatus('LEADERBOARD');note('Leaderboard requested')};
+  $('#triviaHide').onclick=()=>{triviaSend('triviaHide');setTriviaStatus('HIDDEN');note('Trivia hidden')};
+  $('#triviaReset').onclick=()=>{if(confirm('Reset the entire trivia game? This clears the current question and game data.')){triviaSend('triviaReset');$('#triviaQuestion').value='';['A','B','C','D'].forEach(x=>$('#trivia'+x).value='');$('#triviaExplanation').value='';$('#triviaCorrect').value='A';$('#triviaNumber').value='1';loadedSheetQuestionId='';if($('#triviaSheetMeta'))$('#triviaSheetMeta').textContent='Google Sheet ready • no question loaded';setTriviaStatus('IDLE');$('#triviaAnswerCount').textContent='0 answers received';note('Trivia game reset')}};
+
+  $('#refresh').onclick=loadLibrary;
+  $('#uploadBtn').onclick=async()=>{const f=$('#fileInput').files[0];if(!f){note('Choose a file first');return}if(f.size>75*1024*1024){note('File is over 75 MB');return}$('#uploadStatus').textContent=`Uploading ${f.name}…`;try{await api(`/api/media/upload?name=${encodeURIComponent(f.name)}`,{method:'POST',headers:{'content-type':f.type||'application/octet-stream','X-File-Name':f.name},body:f});$('#uploadStatus').textContent='Upload complete';$('#fileInput').value='';note('Media uploaded');loadLibrary();document.querySelector('[data-tab="library"]').click()}catch(e){$('#uploadStatus').textContent=e.message}};
+  $('#showText').onclick=()=>cmd({action:'showText',value:$('#textValue').value,position:$('#textPos').value,color:$('#textColor').value,size:Number($('#textSize').value),font:$('#textFont').value,scroll:$('#textMode').value==='scroll',scrollSeconds:Number($('#textSpeed').value)});$('#hideText').onclick=()=>cmd({action:'hideText'});$('#clear').onclick=()=>cmd({action:'clear'});
+  async function streamerbotTestCommand(payload){
+    const status=$('#sbTestStatus');
+    try{
+      if(status)status.textContent='Sending…';
+      const data=await api(`/api/${encodeURIComponent(room)}/command`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+      if(status)status.textContent='Success — Cloudflare accepted the command.';
+      return data;
+    }catch(e){
+      if(status)status.textContent=`Error: ${e.message}`;
+      throw e;
+    }
+  }
+  $('#sbTestTextBtn').onclick=()=>streamerbotTestCommand({action:'showText',value:$('#sbTestTextValue').value||'VIP GREETING TEST',position:$('#sbTestTextPos').value,color:'#ffffff',size:Number($('#sbTestTextSize').value||48),font:'system',scroll:false,scrollSeconds:12});
+  $('#sbTestClearBtn').onclick=()=>streamerbotTestCommand({action:'clear'});
+  document.querySelectorAll('.tab[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===b.dataset.tab));if(b.dataset.tab==='rideSettings')loadRideSetup()});
+  if(key){$('#login').classList.add('hidden');connect();loadLibrary()}
+})();
+
+  function filterImageLibrary(){
+    const search=document.getElementById('imageSearch');
+    const list=document.getElementById('libraryGrid');
+    const count=document.getElementById('count');
+    if(!list)return;
+
+    const q=(search?.value||'').trim().toLowerCase();
+    const cards=[...list.querySelectorAll('.media-card')];
+
+    cards.forEach(card=>{
+      const haystack=(card.dataset.name||card.querySelector('.name')?.textContent||'').toLowerCase();
+      card.style.display=!q || haystack.includes(q) ? '' : 'none';
+    });
+
+    const visible=cards.filter(card=>card.style.display!=='none').length;
+    if(count){
+      count.textContent=q
+        ? `${visible} match${visible===1?'':'es'}`
+        : `${cards.length} item${cards.length===1?'':'s'}`;
+    }
+  }
+
+
+  {
+    const imageSearch=document.getElementById('imageSearch');
+    if(imageSearch)imageSearch.addEventListener('input',filterImageLibrary);
+  }
+</script>
+</body>
+</html>
