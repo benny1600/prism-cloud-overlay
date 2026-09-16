@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 
 const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, trivia: { visible: false, phase: "idle", questionId: "", questionNumber: 0, question: "", answers: { A: "", B: "", C: "", D: "" }, correct: "", explanation: "", answerCount: 0, leaderboard: [] }, updatedAt: null });
+const TRIVIA_SHEET_URL = "https://script.google.com/macros/s/AKfycbxm50Ypsv--vcVlbFLPb7qK0NO1JHht9ylxUpfawuRJeRf6UExGpffuIaCx3JyH_1TphA/exec";
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml",
@@ -760,6 +761,44 @@ async function serveRadarData() {
   }
 }
 
+async function getTriviaSheetQuestion(url) {
+  const upstreamUrl = new URL(TRIVIA_SHEET_URL);
+  upstreamUrl.searchParams.set("action", "getQuestion");
+  const category = String(url.searchParams.get("category") || "").trim();
+  const difficulty = String(url.searchParams.get("difficulty") || "").trim();
+  if (category) upstreamUrl.searchParams.set("category", category);
+  if (difficulty) upstreamUrl.searchParams.set("difficulty", difficulty);
+  try {
+    const upstream = await fetch(upstreamUrl.toString(), { headers: { accept: "application/json" }, redirect: "follow" });
+    if (!upstream.ok) throw new Error(`Google Sheet HTTP ${upstream.status}`);
+    const data = await upstream.json();
+    if (!data?.ok) return json({ ok: false, error: data?.error || "Unable to load trivia question" }, { status: 404 });
+    return json(data);
+  } catch (error) {
+    return json({ ok: false, error: "Unable to load trivia question from Google Sheet" }, { status: 502 });
+  }
+}
+
+async function markTriviaSheetQuestionUsed(request) {
+  const body = await request.json().catch(() => ({}));
+  const id = String(body?.id || "").trim().slice(0, 120);
+  if (!id) return json({ ok: false, error: "Question ID is required" }, { status: 400 });
+  try {
+    const upstream = await fetch(TRIVIA_SHEET_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ action: "markUsed", id }),
+      redirect: "follow"
+    });
+    if (!upstream.ok) throw new Error(`Google Sheet HTTP ${upstream.status}`);
+    const data = await upstream.json();
+    if (!data?.ok) return json({ ok: false, error: data?.error || "Unable to mark question used" }, { status: 400 });
+    return json(data);
+  } catch (error) {
+    return json({ ok: false, error: "Unable to mark trivia question used in Google Sheet" }, { status: 502 });
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -811,6 +850,8 @@ export default {
       const roomName = decodeURIComponent(parts[1] || "default");
       const action = parts[2] || "";
       if (!isAuthorized(request, env)) return json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      if (action === "trivia-question" && request.method === "GET") return getTriviaSheetQuestion(url);
+      if (action === "trivia-mark-used" && request.method === "POST") return markTriviaSheetQuestionUsed(request);
       const id = env.OVERLAY_ROOMS.idFromName(roomName);
       const stub = env.OVERLAY_ROOMS.get(id);
       if (action === "command") return stub.fetch(new Request("https://room/command", { method: request.method, headers: request.headers, body: request.body }));
