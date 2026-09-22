@@ -1,0 +1,1138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mobile Stream Overlay</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
+*{box-sizing:border-box}
+#stage{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+#graphics{position:absolute;inset:0}
+.graphic{position:absolute;display:block;object-fit:contain}
+#video{position:absolute;display:none;object-fit:contain}
+#text{
+  position:absolute;left:3%;right:3%;bottom:5%;display:none;overflow:hidden;
+  color:#ffffff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-weight:800;
+  line-height:1.15;text-shadow:0 2px 8px rgba(0,0,0,.95);white-space:nowrap
+}
+#text.static{text-align:center}
+#text.static #textInner{display:inline-block;white-space:normal}
+#text.scroll{text-align:left;overflow:hidden}
+#text.scroll #textInner{display:inline-block;white-space:nowrap;will-change:transform}
+@keyframes ticker{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+#rideWait{position:absolute;display:none;pointer-events:none}
+#rideWait .ride-card{
+  width:100%;background:rgba(0,0,0,.82);color:#fff;padding:10px 18px;border-radius:14px;
+  text-align:center;font-family:Arial,Helvetica,sans-serif;
+  box-shadow:0 0 8px rgba(0,0,0,.35);
+}
+#rideWait .ride-name{font-size:clamp(18px,2.8vw,54px);font-weight:700;line-height:1.08;word-break:break-word}
+#rideWait .wait-time{margin-top:4px;font-size:clamp(28px,5.6vw,96px);font-weight:900;line-height:1.0;white-space:nowrap}
+#rideWait .credit{margin-top:5px;font-size:clamp(9px,1vw,16px);opacity:.78;white-space:nowrap}
+#rideWait.green .ride-card{background:rgba(0,160,0,.9);animation:pulseGreen 2s ease-in-out infinite}
+#rideWait.yellow .ride-card{background:rgba(220,170,0,.9);animation:pulseYellow 2.2s ease-in-out infinite}
+#rideWait.red .ride-card{background:rgba(180,0,0,.9);animation:pulseRed 1.6s ease-in-out infinite}
+@keyframes pulseGreen{0%,100%{transform:scale(1);box-shadow:0 0 6px rgba(0,255,0,.4)}50%{transform:scale(1.03);box-shadow:0 0 16px rgba(0,255,0,.7)}}
+@keyframes pulseYellow{0%,100%{transform:scale(1);box-shadow:0 0 4px rgba(255,230,0,.3)}50%{transform:scale(1.02);box-shadow:0 0 14px rgba(255,230,0,.7)}}
+@keyframes pulseRed{0%,100%{transform:scale(1);box-shadow:0 0 4px rgba(255,0,0,.4)}50%{transform:scale(1.05);box-shadow:0 0 20px rgba(255,0,0,.9)}}
+
+#weather{position:absolute;display:none;pointer-events:none;transform-origin:center center}
+#weather .weather-card{
+  width:420px;height:180px;box-sizing:border-box;padding:12px 16px;border-radius:18px;
+  background:rgba(10,10,20,.75);backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.12);display:grid;grid-template-columns:110px 1fr;
+  column-gap:12px;align-items:center;box-shadow:0 10px 25px rgba(0,0,0,.45);
+  color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+}
+#weather .w-left{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+#weather .w-icon{font-size:42px;line-height:1}
+#weather .w-temp{font-size:30px;font-weight:700}
+#weather .w-feels{font-size:12px;color:#cfd8dc}
+#weather .w-right{display:flex;flex-direction:column;gap:4px}
+#weather .w-location{font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+#weather .w-condition{font-size:13px;color:#cfd8dc}
+#weather .w-rain-row{margin-top:6px;display:flex;flex-direction:column;gap:4px}
+#weather .w-rain-header{display:flex;justify-content:space-between;font-size:13px;align-items:center;gap:8px}
+#weather .w-rain-percent{font-weight:600}
+#weather .w-rain-percent.high{color:#ff5252}
+#weather .w-rain-percent.low{color:#4caf50}
+#weather .w-rain-bar{width:100%;height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+#weather .w-rain-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,rgba(79,195,247,.25),#4fc3f7);transition:width .6s ease-out}
+#weather .w-meta{margin-top:2px;font-size:11px;color:#cfd8dc;opacity:.85;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+#weather .w-footer{margin-top:6px;font-size:13px;display:flex;justify-content:space-between;align-items:center;color:#fff;font-weight:600;padding-top:4px;border-top:1px solid rgba(255,255,255,.15)}
+#weather .w-channel{opacity:.85}
+#weather .w-subscribe{color:#ff5252;animation:weatherPulse 1.4s infinite}
+@keyframes weatherPulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
+
+
+#radar{position:absolute;display:none;pointer-events:none;width:540px;height:590px;transform-origin:center center}
+#radar .radar-card{
+  width:540px;height:590px;box-sizing:border-box;padding:12px;border-radius:18px;
+  background:rgba(8,12,18,.92);border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 12px 30px rgba(0,0,0,.5);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff
+}
+#radar .radar-head{height:42px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 4px}
+#radar .radar-title{font-size:18px;font-weight:800}
+#radar .radar-time{font-size:12px;color:#cfd8dc}
+#radar .radar-map{position:relative;width:512px;height:512px;overflow:hidden;border-radius:13px;background:#17212b}
+#radar .base-layer,#radar .radar-layer{position:absolute;inset:0;overflow:hidden}
+#radar .base-layer img,#radar .radar-layer img{position:absolute;width:256px;height:256px;max-width:none}
+#radar .radar-layer{opacity:.82}
+#radar .radar-center{
+  position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;
+  background:#fff;border:2px solid #111;box-shadow:0 0 0 2px rgba(255,255,255,.35);z-index:5
+}
+#radar .radar-foot{height:24px;display:flex;align-items:flex-end;justify-content:space-between;font-size:10px;color:#b0bec5;padding:0 3px}
+
+#lineTimer{position:absolute;display:none;pointer-events:none;left:50%;bottom:22px;transform:translateX(-50%);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+#lineTimer .timer-overlay-card{min-width:290px;max-width:560px;padding:12px 18px;border-radius:16px;background:rgba(8,12,18,.92);border:1px solid rgba(255,255,255,.15);box-shadow:0 10px 28px rgba(0,0,0,.45);color:#fff;text-align:center}
+#lineTimer .timer-name{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lineTimer .timer-reported{font-size:14px;font-weight:700;opacity:.88;margin-top:5px}#lineTimer .timer-time{font-size:38px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:1px;margin-top:8px}
+#lineTimer .timer-label{font-size:11px;opacity:.75;margin-top:4px;text-transform:uppercase;letter-spacing:.8px}
+
+#rideTicker{position:absolute;display:none;pointer-events:none;left:0;right:0;bottom:18px;z-index:9999;min-height:48px;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff}
+#rideTicker .ticker-shell{position:relative;width:100%;overflow:hidden;background:rgba(8,12,18,.92);color:#fff;border-top:1px solid rgba(255,255,255,.15);border-bottom:1px solid rgba(255,255,255,.15);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#rideTicker .ticker-track{display:flex;width:max-content;align-items:center;white-space:nowrap;will-change:transform;animation:rideTickerScroll 36s linear infinite}
+#rideTicker .ticker-group{display:flex;align-items:center;gap:34px;white-space:nowrap;padding:10px 34px 10px 0}
+#rideTicker .ticker-item{display:inline-flex;align-items:center;gap:8px;font-weight:750;font-size:22px;color:#fff}
+#rideTicker .ticker-wait{font-weight:900}
+#rideTicker .ticker-wait.green{color:#67d96f}
+#rideTicker .ticker-wait.yellow{color:#ffd54f}
+#rideTicker .ticker-wait.red{color:#ff6b6b}
+#rideTicker .ticker-credit{font-size:11px;color:#fff;opacity:.72;margin-left:10px}
+@keyframes rideTickerScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+
+/* Independent Trivia layer */
+#trivia{position:absolute;inset:0;display:none;pointer-events:none;z-index:10500;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff}
+#trivia .trivia-wrap{position:absolute;left:50%;top:50%;width:min(92vw,1120px);transform:translate(-50%,-50%);padding:clamp(18px,2.4vw,32px);border-radius:28px;background:linear-gradient(145deg,rgba(16,20,42,.97),rgba(34,16,54,.96));border:2px solid rgba(255,255,255,.18);box-shadow:0 20px 70px rgba(0,0,0,.58),inset 0 0 36px rgba(255,255,255,.04)}
+#trivia .trivia-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
+#trivia .trivia-kicker{font-size:clamp(16px,1.8vw,26px);font-weight:1000;letter-spacing:.12em;text-transform:uppercase;color:#ffd85a}
+#trivia .trivia-phase{padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.12);font-size:clamp(13px,1.25vw,18px);font-weight:900;letter-spacing:.06em;white-space:nowrap}
+#trivia .trivia-question{font-size:clamp(28px,4vw,58px);font-weight:950;line-height:1.08;text-align:center;margin:10px auto 22px;max-width:1000px;text-wrap:balance;text-shadow:0 3px 10px rgba(0,0,0,.55)}
+#trivia .trivia-answers{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+#trivia .trivia-answer{display:flex;align-items:center;gap:14px;min-height:86px;padding:14px 18px;border-radius:18px;background:rgba(255,255,255,.09);border:2px solid rgba(255,255,255,.13);font-size:clamp(20px,2.4vw,34px);font-weight:800;line-height:1.12}
+#trivia .trivia-letter{display:grid;place-items:center;flex:0 0 auto;width:48px;height:48px;border-radius:50%;background:#ffd85a;color:#181224;font-weight:1000}
+#trivia.revealed .trivia-answer.correct{background:rgba(31,170,92,.34);border-color:#68f09f;box-shadow:0 0 28px rgba(70,230,130,.25)}
+#trivia.revealed .trivia-answer.correct .trivia-letter{background:#68f09f;color:#092114}
+#trivia .trivia-explanation{display:none;margin-top:18px;padding:14px 18px;border-radius:16px;background:rgba(0,0,0,.24);font-size:clamp(16px,1.65vw,24px);line-height:1.25;text-align:center}
+#trivia.revealed .trivia-explanation.has-text{display:block}
+#trivia .trivia-leaderboard{display:none}
+#trivia.leaderboard .trivia-question,#trivia.leaderboard .trivia-answers,#trivia.leaderboard .trivia-explanation{display:none}
+#trivia.leaderboard .trivia-leaderboard{display:block}
+#trivia .trivia-leaderboard-title{text-align:center;font-size:clamp(34px,5vw,68px);font-weight:1000;margin:6px 0 18px}
+#trivia .trivia-ranks{display:grid;gap:10px;max-width:820px;margin:auto}
+#trivia .trivia-rank{display:grid;grid-template-columns:70px 1fr auto;align-items:center;gap:14px;padding:12px 18px;border-radius:15px;background:rgba(255,255,255,.09);font-size:clamp(20px,2.3vw,32px);font-weight:850}
+#trivia .trivia-rank-num{color:#ffd85a;font-weight:1000;text-align:center}
+#trivia .trivia-score{font-variant-numeric:tabular-nums;color:#9ee7ff}
+#trivia .trivia-empty{text-align:center;font-size:clamp(22px,3vw,38px);opacity:.78;padding:35px 0}
+@media(max-width:700px){#trivia .trivia-answers{grid-template-columns:1fr}#trivia .trivia-answer{min-height:66px}}
+
+#trivia.tiebreaker .trivia-answers,#trivia.tiebreaker .trivia-explanation,#trivia.tiebreaker .trivia-leaderboard{display:none}
+#trivia.tiebreaker .trivia-question{font-size:clamp(38px,6vw,82px);color:#ffd85a}
+#triviaScoreTicker{position:absolute;left:0;right:0;bottom:0;z-index:10490;display:none;overflow:hidden;pointer-events:none;background:rgba(8,12,18,.94);border-top:1px solid rgba(255,255,255,.18);border-bottom:1px solid rgba(255,255,255,.12);color:#fff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+#triviaScoreTickerTrack{display:flex;width:max-content;white-space:nowrap;will-change:transform;animation:triviaScoreScroll 42s linear infinite}
+#triviaScoreTicker .score-group{display:flex;align-items:center;gap:34px;padding:10px 34px 10px 0}
+#triviaScoreTicker .score-item{font-size:22px;font-weight:850}
+#triviaScoreTicker .score-item b{color:#ffd85a}
+@keyframes triviaScoreScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+#status{display:none;position:absolute;top:8px;left:8px;padding:5px 8px;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font:12px system-ui,sans-serif}
+
+
+
+
+.graphic-shell{position:absolute;pointer-events:none;height:auto}
+.graphic-anim{display:block;width:100%;height:auto;max-width:100%;object-fit:contain;transform-origin:center center}
+.graphic-anim.anim-none{animation:none}
+.graphic-anim.anim-pulse{animation:imgPulse 1.8s ease-in-out infinite}
+.graphic-anim.anim-jiggle{animation:imgJiggle .65s ease-in-out infinite}
+.graphic-anim.anim-bounce{animation:imgBounce 1.25s ease-in-out infinite}
+.graphic-anim.anim-wiggle{animation:imgWiggle .9s ease-in-out infinite}
+.graphic-anim.anim-float{animation:imgFloat 3s ease-in-out infinite}
+.graphic-anim.anim-heartbeat{animation:imgHeartbeat 1.8s ease-in-out infinite}
+.graphic-anim.anim-spin{animation:imgSpin 4s linear infinite}
+@keyframes imgPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes imgJiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-3deg)}75%{transform:rotate(3deg)}}
+@keyframes imgBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes imgWiggle{0%,100%{transform:rotate(0)}20%{transform:rotate(-5deg)}40%{transform:rotate(4deg)}60%{transform:rotate(-3deg)}80%{transform:rotate(2deg)}}
+@keyframes imgFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+@keyframes imgHeartbeat{0%,40%,100%{transform:scale(1)}10%{transform:scale(1.10)}20%{transform:scale(1)}30%{transform:scale(1.07)}}
+@keyframes imgSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+
+/* ============================================================
+   MEMBER OVERLAY v0.35
+   Matches the existing OBS member overlay exactly.
+   This is independent of the normal graphics layer.
+   ============================================================ */
+#memberAnchor{
+  position:absolute;
+  left:35px;
+  bottom:35px;
+  width:1200px;
+  height:352px;
+  transform:scale(.40);
+  transform-origin:left bottom;
+  pointer-events:none;
+  z-index:11000;
+}
+#memberGroup{
+  position:absolute;
+  left:0;
+  bottom:0;
+  width:1200px;
+  height:352px;
+  opacity:0;
+  transform:translateY(70px) scale(.86);
+  transform-origin:left bottom;
+  pointer-events:none;
+}
+#memberGroup.show{animation:memberGroupIn .65s cubic-bezier(.16,.9,.28,1.22) forwards}
+#memberGroup.hide{animation:memberGroupOut .45s cubic-bezier(.55,.05,.8,.25) forwards}
+@keyframes memberGroupIn{
+  0%{opacity:0;transform:translateY(90px) scale(.72)}
+  70%{opacity:1;transform:translateY(-8px) scale(1.03)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes memberGroupOut{
+  0%{opacity:1;transform:translateY(0) scale(1)}
+  100%{opacity:0;transform:translateY(70px) scale(.82)}
+}
+#memberArt{
+  position:absolute;
+  inset:0;
+  width:1200px;
+  height:352px;
+  object-fit:contain;
+  display:block;
+}
+#memberTextWrap{
+  position:absolute;
+  left:520px;
+  top:78px;
+  width:625px;
+  height:210px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  opacity:0;
+  transform:scale(.08);
+  transform-origin:center center;
+}
+#memberTextWrap.show{animation:memberTextIn .58s .28s cubic-bezier(.16,.9,.28,1.36) forwards}
+#memberTextWrap.hide{animation:memberTextOut .34s cubic-bezier(.55,.05,.8,.25) forwards}
+@keyframes memberTextIn{
+  0%{opacity:0;transform:scale(.08)}
+  58%{opacity:1;transform:scale(1.13)}
+  78%{transform:scale(.97)}
+  100%{opacity:1;transform:scale(1)}
+}
+@keyframes memberTextOut{
+  0%{opacity:1;transform:scale(1)}
+  22%{transform:scale(1.05)}
+  100%{opacity:0;transform:scale(.08)}
+}
+#memberName{
+  width:100%;
+  white-space:nowrap;
+  font-size:70px;
+  line-height:1;
+  font-weight:1000;
+  color:#1b1b1b;
+  text-shadow:0 3px 0 rgba(255,255,255,.9),0 0 4px rgba(255,255,255,.9),3px 5px 8px rgba(0,0,0,.28);
+}
+#memberLabel{
+  position:absolute;
+  left:520px;
+  top:52px;
+  width:625px;
+  text-align:center;
+  font-size:24px;
+  font-weight:900;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:#b63a24;
+  text-shadow:0 2px 0 rgba(255,255,255,.85);
+  opacity:0;
+}
+#memberGroup.show #memberLabel{animation:memberLabelIn .3s .42s ease forwards}
+@keyframes memberLabelIn{to{opacity:1}}
+
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="graphics"></div>
+  <video id="video" playsinline preload="metadata"></video>
+  <div id="text" class="static"><span id="textInner"></span></div>
+  <div id="rideWait">
+    <div class="ride-card">
+      <div id="rideName" class="ride-name"></div>
+      <div id="rideTime" class="wait-time">--</div>
+      <div class="credit">Powered by Queue-Times.com</div>
+    </div>
+  </div>
+  <div id="weather">
+    <div class="weather-card">
+      <div class="w-left">
+        <div id="wIcon" class="w-icon">⛅</div>
+        <div id="wTemp" class="w-temp">--°</div>
+        <div id="wFeels" class="w-feels">feels like --°</div>
+      </div>
+      <div class="w-right">
+        <div class="w-location"><span>📍</span><span id="wLocation">Walt Disney World</span></div>
+        <div id="wCondition" class="w-condition">Loading current weather…</div>
+        <div class="w-rain-row">
+          <div class="w-rain-header"><span>🌧️ Rain next hour</span><span id="wRainPct" class="w-rain-percent">--%</span></div>
+          <div class="w-rain-bar"><div id="wRainFill" class="w-rain-fill"></div></div>
+        </div>
+        <div class="w-meta">
+          <span id="wDailyRain">High today: --%</span>
+          <span id="wPrecip">Precip: -- in</span>
+          <span id="wUpdated">Updated: --</span>
+        </div>
+        <div class="w-footer"><span class="w-channel">Not So Scary Mary TV</span><span class="w-subscribe">🔥 Subscribe!</span></div>
+      </div>
+    </div>
+  </div>
+  <div id="radar">
+    <div class="radar-card">
+      <div class="radar-head">
+        <div id="radarTitle" class="radar-title">Live Radar • Walt Disney World</div>
+        <div id="radarTime" class="radar-time">Loading…</div>
+      </div>
+      <div id="radarMap" class="radar-map">
+        <div id="radarBase" class="base-layer"></div>
+        <div id="radarLayer" class="radar-layer"></div>
+        <div class="radar-center"></div>
+      </div>
+      <div class="radar-foot">
+        <span>Map © OpenStreetMap contributors</span>
+        <span>Radar © RainViewer</span>
+      </div>
+    </div>
+  </div>
+  <div id="lineTimer"><div class="timer-overlay-card"><div id="lineTimerName" class="timer-name">Line Timer</div><div id="lineTimerReported" class="timer-reported">Reported Wait: —</div><div id="lineTimerTime" class="timer-time">00:00:00</div><div id="lineTimerLabel" class="timer-label">Our Wait</div></div></div>
+  <div id="rideTicker">
+    <div class="ticker-shell">
+      <div id="rideTickerTrack" class="ticker-track"></div>
+    </div>
+  </div>
+  <div id="trivia" aria-hidden="true">
+    <div class="trivia-wrap">
+      <div class="trivia-head">
+        <div id="triviaKicker" class="trivia-kicker">Trivia</div>
+        <div id="triviaPhase" class="trivia-phase">Question</div>
+      </div>
+      <div id="triviaQuestion" class="trivia-question"></div>
+      <div id="triviaAnswers" class="trivia-answers">
+        <div class="trivia-answer" data-choice="A"><span class="trivia-letter">A</span><span class="trivia-answer-text"></span></div>
+        <div class="trivia-answer" data-choice="B"><span class="trivia-letter">B</span><span class="trivia-answer-text"></span></div>
+        <div class="trivia-answer" data-choice="C"><span class="trivia-letter">C</span><span class="trivia-answer-text"></span></div>
+        <div class="trivia-answer" data-choice="D"><span class="trivia-letter">D</span><span class="trivia-answer-text"></span></div>
+      </div>
+      <div id="triviaExplanation" class="trivia-explanation"></div>
+      <div class="trivia-leaderboard">
+        <div class="trivia-leaderboard-title">Leaderboard</div>
+        <div id="triviaRanks" class="trivia-ranks"></div>
+      </div>
+    </div>
+  </div>
+  <div id="triviaScoreTicker"><div id="triviaScoreTickerTrack"></div></div>
+  <div id="status"></div>
+  <!-- Existing Member Overlay, now included in the PRISM cloud canvas -->
+  <div id="memberAnchor">
+    <div id="memberGroup" aria-hidden="true">
+      <img id="memberArt" src="member_art.gif" alt="">
+      <div id="memberLabel">Welcome In Member</div>
+      <div id="memberTextWrap"><div id="memberName">THE_BIG_BEN_THEORY</div></div>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const q=new URLSearchParams(location.search), room=q.get('room')||'default', debug=q.get('debug')==='1';
+  const graphics=document.querySelector('#graphics'), video=document.querySelector('#video'), text=document.querySelector('#text'), textInner=document.querySelector('#textInner'), rideWait=document.querySelector('#rideWait'), rideName=document.querySelector('#rideName'), rideTime=document.querySelector('#rideTime'), weather=document.querySelector('#weather'), wIcon=document.querySelector('#wIcon'), wTemp=document.querySelector('#wTemp'), wFeels=document.querySelector('#wFeels'), wLocation=document.querySelector('#wLocation'), wCondition=document.querySelector('#wCondition'), wRainPct=document.querySelector('#wRainPct'), wRainFill=document.querySelector('#wRainFill'), wDailyRain=document.querySelector('#wDailyRain'), wPrecip=document.querySelector('#wPrecip'), wUpdated=document.querySelector('#wUpdated'), radar=document.querySelector('#radar'), radarTitle=document.querySelector('#radarTitle'), radarTime=document.querySelector('#radarTime'), radarBase=document.querySelector('#radarBase'), radarLayer=document.querySelector('#radarLayer'), lineTimer=document.querySelector('#lineTimer'), lineTimerName=document.querySelector('#lineTimerName'), lineTimerReported=document.querySelector('#lineTimerReported'), lineTimerTime=document.querySelector('#lineTimerTime'), lineTimerLabel=document.querySelector('#lineTimerLabel'), rideTicker=document.querySelector('#rideTicker'), rideTickerTrack=document.querySelector('#rideTickerTrack'), trivia=document.querySelector('#trivia'), triviaKicker=document.querySelector('#triviaKicker'), triviaPhase=document.querySelector('#triviaPhase'), triviaQuestion=document.querySelector('#triviaQuestion'), triviaAnswers=document.querySelector('#triviaAnswers'), triviaExplanation=document.querySelector('#triviaExplanation'), triviaRanks=document.querySelector('#triviaRanks'), triviaScoreTicker=document.querySelector('#triviaScoreTicker'), triviaScoreTickerTrack=document.querySelector('#triviaScoreTickerTrack'), status=document.querySelector('#status');
+  let ws,retry=1000,currentVideoSrc=''; const timers=new Map(); if(debug)status.style.display='block';
+  let rideItems=[],rideIndex=0,rideCycleTimer=null,rideRefreshTimer=null,rideConfigKey='';
+  let weatherRefreshTimer=null,weatherConfigKey='';
+  let radarFrames=[],radarFrameIndex=0,radarAnimTimer=null,radarRefreshTimer=null,radarConfigKey='',radarToken=0;
+  const setStatus=s=>{if(debug)status.textContent=s};
+  const allowedPositions=new Set(['center','top','bottom','left','right','top-left','top-right','bottom-left','bottom-right']);
+
+  function place(el,pos,size){
+    const safe=allowedPositions.has(pos)?pos:'center';
+    const pct=Math.max(5,Math.min(100,Number(size||40)));
+    Object.assign(el.style,{inset:'auto',top:'auto',right:'auto',bottom:'auto',left:'auto',width:`${pct}%`,height:'auto',maxWidth:`${pct}%`,maxHeight:'90%',transform:'none'});
+    if(safe==='center'){
+      el.style.left='50%';el.style.top='50%';el.style.transform='translate(-50%,-50%)';
+    } else if(safe==='top'){
+      el.style.left='50%';el.style.top='4%';el.style.transform='translateX(-50%)';
+    } else if(safe==='bottom'){
+      el.style.left='50%';el.style.bottom='4%';el.style.transform='translateX(-50%)';
+    } else if(safe==='left'){
+      el.style.left='4%';el.style.top='50%';el.style.transform='translateY(-50%)';
+    } else if(safe==='right'){
+      el.style.right='4%';el.style.top='50%';el.style.transform='translateY(-50%)';
+    } else {
+      if(safe.startsWith('top'))el.style.top='4%';else el.style.bottom='4%';
+      if(safe.endsWith('left'))el.style.left='4%';else el.style.right='4%';
+    }
+  }
+
+  function renderGraphics(state){
+    const items=Array.isArray(state.graphics)
+      ? state.graphics.filter(g=>g?.src)
+      : (state.graphic?.src ? [{...state.graphic,id:state.graphic.id||state.graphic.src,size:40}] : []);
+
+    const wanted=new Map(items.map(g=>[String(g.id||g.src),g]));
+
+    for(const child of [...graphics.children]){
+      if(!wanted.has(child.dataset.id)){
+        clearTimeout(timers.get(child.dataset.id));
+        timers.delete(child.dataset.id);
+        child.remove();
+      }
+    }
+
+    for(const g of items){
+      const id=String(g.id||g.src);
+      let shell=[...graphics.children].find(x=>x.dataset.id===id);
+      let img;
+
+      if(!shell){
+        shell=document.createElement('div');
+        shell.className='graphic-shell';
+        shell.dataset.id=id;
+
+        img=document.createElement('img');
+        img.className='graphic-anim';
+        img.alt='';
+        shell.appendChild(img);
+        graphics.appendChild(shell);
+      }else{
+        img=shell.querySelector('img');
+      }
+
+      if(img.getAttribute('src')!==g.src)img.src=g.src;
+      img.style.objectFit=g.fit||'contain';
+      img.className='graphic-anim anim-'+(g.animation||'none');
+
+      // Position the shell; animate only the image inside it.
+      place(shell,g.position,g.size);
+
+      clearTimeout(timers.get(id));
+      if(Number(g.duration)>0){
+        timers.set(id,setTimeout(()=>{
+          shell.remove();
+          timers.delete(id);
+          if(ws?.readyState===1){
+            ws.send(JSON.stringify({type:'event',event:'imageExpired',id,src:g.src}));
+          }
+        },Number(g.duration)));
+      }
+    }
+  }
+
+  function positionVideo(el,pos){
+    Object.assign(el.style,{inset:'auto',top:'0',left:'0',width:'100%',height:'100%',maxWidth:'100%',maxHeight:'100%',transform:'none'});
+  }
+
+
+  const BASE_RIDE_DEFAULTS={
+    mk:{
+      "name:A Pirate's Adventure ~ Treasures of the Seven Seas":{displayName:'',omitted:true},
+      "name:Main Street Vehicles":{displayName:'',omitted:true},
+      "name:Casey Jr. Splash 'N' Soak Station":{displayName:'',omitted:true}
+    },
+    epcot:{"name:Journey of Water, Inspired by Moana":{displayName:'Moana – Journey of Water',omitted:false}},
+    hs:{"name:Millennium Falcon: Smugglers Run":{displayName:'Smugglers Run',omitted:false}},
+    ak:{"name:Expedition Everest - Legend of the Forbidden Mountain":{displayName:'Expedition Everest',omitted:false}}
+  };
+  let rideSettingsState={},rideSettingsSignature='';
+  function rideKey(r){return r?.id!=null?`id:${r.id}`:`name:${r?.name||''}`}
+  function effectiveRideSetting(park,r){
+    const custom=rideSettingsState?.[park]?.[rideKey(r)]||rideSettingsState?.[park]?.[`name:${r?.name||''}`];
+    return custom||BASE_RIDE_DEFAULTS?.[park]?.[`name:${r?.name||''}`]||{displayName:'',omitted:false};
+  }
+
+  function rideList(data,park){
+    const out=[];
+    for(const land of (data?.lands||[])){
+      for(const r of (land.rides||[])){
+        if(!r?.name)continue;
+        const setting=effectiveRideSetting(park,r);
+        if(setting.omitted)continue;
+        out.push({...r,_displayName:(setting.displayName||r.name).trim()||r.name});
+      }
+    }
+    return out;
+  }
+
+  function renderRide(){
+    if(!rideItems.length){
+      rideWait.style.display='none';
+      return;
+    }
+    const r=rideItems[rideIndex % rideItems.length];
+    rideWait.style.display='block';
+    rideWait.className='';
+    rideName.textContent=r._displayName||r.name;
+    const raw=typeof r.wait_time==='number'?r.wait_time:null;
+    rideTime.textContent=raw!==null?`${raw} min`:(r.is_open!==false?'—':'Closed');
+    if(raw!==null){
+      if(raw<=30)rideWait.classList.add('green');
+      else if(raw<=60)rideWait.classList.add('yellow');
+      else rideWait.classList.add('red');
+    }
+  }
+
+  function stopRideTimers(){
+    clearInterval(rideCycleTimer); rideCycleTimer=null;
+    clearInterval(rideRefreshTimer); rideRefreshTimer=null;
+  }
+
+  function waitColorClass(minutes){
+    if(typeof minutes!=='number')return '';
+    const n=minutes;
+    if(!Number.isFinite(n))return '';
+    if(n<=30)return 'green';
+    if(n<=60)return 'yellow';
+    return 'red';
+  }
+
+  const TICKER_PARK_NAMES={mk:'Magic Kingdom',epcot:'EPCOT',hs:'Hollywood Studios',ak:'Animal Kingdom'};
+
+  function renderRideTicker(rides,cfg){
+    if(!rideTicker||!rideTickerTrack)return;
+    const usable=(Array.isArray(rides)?rides:[]).filter(r=>r && r.name);
+    if(!usable.length){
+      rideTicker.style.display='none';
+      rideTickerTrack.replaceChildren();
+      return;
+    }
+
+    rideTickerTrack.replaceChildren();
+
+    function buildGroup(){
+      const group=document.createElement('div');
+      group.className='ticker-group';
+
+      const parkLabel=document.createElement('span');
+      parkLabel.className='ticker-item';
+      parkLabel.style.fontWeight='900';
+      parkLabel.textContent=`${TICKER_PARK_NAMES[cfg?.parkKey]||'Park'} Wait Times`;
+      group.appendChild(parkLabel);
+
+      usable.forEach(r=>{
+        const item=document.createElement('span');
+        item.className='ticker-item';
+
+        const name=document.createElement('span');
+        name.textContent=r._displayName||r.name;
+
+        const wait=document.createElement('span');
+        const mins=typeof r.wait_time==='number'?r.wait_time:null;
+        wait.className='ticker-wait '+waitColorClass(mins);
+        wait.textContent=mins!==null?`${mins} min`:(r.is_open===false?'Closed':'--');
+
+        item.append(name,wait);
+        group.appendChild(item);
+      });
+
+      const credit=document.createElement('span');
+      credit.className='ticker-credit';
+      credit.textContent='Wait times via Queue-Times';
+      group.appendChild(credit);
+
+      return group;
+    }
+
+    // Two identical groups create a seamless loop and ensure text is visible immediately.
+    rideTickerTrack.append(buildGroup(),buildGroup());
+
+    const size=Math.max(2,Math.min(75,Number(cfg?.size||20)));
+    const font=Math.max(12,Math.round(22*(size/20)));
+    rideTickerTrack.querySelectorAll('.ticker-item').forEach(el=>el.style.fontSize=`${font}px`);
+
+    const cycle=Math.max(3,Math.min(120,Number(cfg?.cycle||10)));
+    // In ticker mode this setting controls the time for one complete marquee loop.
+    // Longer selections genuinely slow the ticker instead of hitting the old 70-second cap.
+    const duration=Math.max(18,cycle*4);
+    rideTickerTrack.style.animationDuration=`${duration}s`;
+
+    // Restart animation cleanly whenever ticker contents/settings change.
+    rideTickerTrack.style.animationName='none';
+    void rideTickerTrack.offsetWidth;
+    rideTickerTrack.style.animationName='rideTickerScroll';
+
+    rideTicker.style.display='block';
+  }
+
+  function hideRideTicker(){
+    if(!rideTicker)return;
+    rideTicker.style.display='none';
+    if(rideTickerTrack)rideTickerTrack.replaceChildren();
+  }
+
+
+  async function refreshRideWait(cfg){
+    try{
+      const r=await fetch(`/ride-waits-data?park=${encodeURIComponent(cfg.park)}`,{cache:'no-store'});
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const data=await r.json();
+
+      rideItems=rideList(
+        data,
+        cfg.parkKey||({6:'mk',5:'epcot',7:'hs',8:'ak'}[cfg.park]||'mk')
+      );
+      rideIndex=0;
+
+      const mode=cfg.ticker===true?'ticker':String(cfg.displayMode||'card').toLowerCase();
+
+      if(mode==='ticker'){
+        // Ticker mode is exclusive: never render the rotating card.
+        rideWait.style.display='none';
+        renderRideTicker(rideItems,cfg);
+        return;
+      }
+
+      // Card mode is exclusive: never leave the ticker visible.
+      hideRideTicker();
+      renderRide();
+    }catch(e){
+      console.warn('Ride waits:',e);
+      rideItems=[];
+      rideWait.style.display='none';
+      hideRideTicker();
+    }
+  }
+
+  function applyRideWait(cfg){
+    if(!cfg){
+      rideConfigKey='';
+      rideItems=[];
+      stopRideTimers();
+      rideWait.style.display='none';
+      hideRideTicker();
+      return;
+    }
+
+    const mode=cfg.ticker===true?'ticker':String(cfg.displayMode||'card').toLowerCase();
+
+    // Include displayMode so changing Card <-> Ticker always reapplies the overlay.
+    const key=`${cfg.park}|${cfg.parkKey||''}|${cfg.position}|${cfg.size}|${cfg.cycle}|${mode}|${cfg.ticker===true?'1':'0'}|${rideSettingsSignature}`;
+
+    if(key===rideConfigKey){
+      if(mode==='ticker'){
+        rideWait.style.display='none';
+        if(rideItems.length)renderRideTicker(rideItems,cfg);
+      }else{
+        hideRideTicker();
+        place(rideWait,cfg.position,cfg.size);
+        rideWait.style.maxHeight='none';
+        renderRide();
+      }
+      return;
+    }
+
+    rideConfigKey=key;
+    stopRideTimers();
+
+    if(mode==='ticker'){
+      rideWait.style.display='none';
+      hideRideTicker();
+      refreshRideWait(cfg);
+
+      // Ticker animation is continuous; only the data needs periodic refresh.
+      rideRefreshTimer=setInterval(()=>refreshRideWait(cfg),300000);
+      return;
+    }
+
+    hideRideTicker();
+    place(rideWait,cfg.position,cfg.size);
+    rideWait.style.maxHeight='none';
+
+    refreshRideWait(cfg);
+
+    // Card mode rotates one ride at a time.
+    rideCycleTimer=setInterval(()=>{
+      if(!rideItems.length)return;
+      rideIndex=(rideIndex+1)%rideItems.length;
+      renderRide();
+    },Math.max(3,Number(cfg.cycle||10))*1000);
+
+    rideRefreshTimer=setInterval(()=>refreshRideWait(cfg),300000);
+  }
+
+  function weatherDescription(code){
+    if(code===0)return{icon:'☀️',text:'Clear sky'};
+    if([1,2].includes(code))return{icon:'🌤️',text:'Mostly sunny'};
+    if(code===3)return{icon:'⛅',text:'Cloudy'};
+    if([45,48].includes(code))return{icon:'🌫️',text:'Foggy'};
+    if([51,53,55].includes(code))return{icon:'🌦️',text:'Drizzle'};
+    if([61,63,65].includes(code))return{icon:'🌧️',text:'Rain'};
+    if([66,67].includes(code))return{icon:'🌧️❄️',text:'Freezing rain'};
+    if([71,73,75,77].includes(code))return{icon:'❄️',text:'Snow'};
+    if([80,81,82].includes(code))return{icon:'🌦️',text:'Showers'};
+    if([95,96,99].includes(code))return{icon:'⛈️',text:'Thunderstorms'};
+    return{icon:'❓',text:'Unknown conditions'};
+  }
+
+  function formatWeatherTime(iso){
+    try{return new Date(iso).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}
+    catch{return'--';}
+  }
+
+
+  function nextHourRainChance(data){
+    const times=Array.isArray(data?.hourly?.time)?data.hourly.time:[];
+    const probs=Array.isArray(data?.hourly?.precipitation_probability)?data.hourly.precipitation_probability:[];
+    if(!times.length || !probs.length) return 0;
+
+    const currentTime = data?.current?.time ? new Date(data.current.time).getTime() : Date.now();
+
+    // Prefer the first forecast hour at or after the current weather timestamp.
+    for(let i=0;i<times.length;i++){
+      const t=new Date(times[i]).getTime();
+      if(Number.isFinite(t) && t>=currentTime){
+        const p=Number(probs[i]);
+        return Number.isFinite(p)?p:0;
+      }
+    }
+
+    const last=Number(probs[probs.length-1]);
+    return Number.isFinite(last)?last:0;
+  }
+
+  async function refreshWeather(cfg){
+    try{
+      const r=await fetch(`/weather-data?park=${encodeURIComponent(cfg.park)}&unit=${encodeURIComponent(cfg.unit)}`,{cache:'no-store'});
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const data=await r.json();
+      const current=data.current||{},daily=data.daily||{};
+      const temp=Math.round(current.temperature_2m);
+      const feels=Math.round(current.apparent_temperature);
+      const precip=current.precipitation!=null?Number(current.precipitation).toFixed(2):null;
+      const nextHourChance=nextHourRainChance(data);
+      const dailyMax=Array.isArray(daily.precipitation_probability_max)?daily.precipitation_probability_max[0]:0;
+      const desc=weatherDescription(current.weather_code||0);
+      const clamped=Math.max(0,Math.min(100,Number(nextHourChance||0)));
+      const dailyClamped=Math.max(0,Math.min(100,Number(dailyMax||0)));
+
+      wIcon.textContent=desc.icon;
+      wTemp.textContent=`${temp}°`;
+      wFeels.textContent=`feels like ${feels}°`;
+      wLocation.textContent=data.overlay_location_name||'Walt Disney World';
+      wCondition.textContent=desc.text;
+      wRainPct.textContent=`${Math.round(clamped)}%`;
+      wRainPct.classList.remove('high','low');
+      if(clamped>=60)wRainPct.classList.add('high');
+      else if(clamped<=30)wRainPct.classList.add('low');
+      wRainFill.style.width=`${clamped}%`;
+      wDailyRain.textContent=`High today: ${Math.round(dailyClamped)}%`;
+      wPrecip.textContent=`Precip: ${precip!=null?precip+' in':'--'}`;
+      wUpdated.textContent=`Updated: ${current.time?formatWeatherTime(current.time):'--'}`;
+      weather.style.display='block';
+    }catch(e){
+      console.warn('Weather:',e);
+      weather.style.display='none';
+    }
+  }
+
+  function applyWeather(cfg){
+    if(!cfg){
+      weatherConfigKey='';
+      clearInterval(weatherRefreshTimer); weatherRefreshTimer=null;
+      weather.style.display='none';
+      return;
+    }
+
+    const size=Math.max(10,Number(cfg.size||40));
+    const scale=size/100;
+    weather.style.width='420px';
+    weather.style.height='180px';
+    weather.style.left=weather.style.right=weather.style.top=weather.style.bottom='auto';
+
+    const pos=cfg.position||'top-right';
+    const margin=16;
+    if(pos.includes('left')) weather.style.left=`${margin}px`;
+    else if(pos.includes('right')) weather.style.right=`${margin}px`;
+    else weather.style.left='50%';
+
+    if(pos.includes('top')) weather.style.top=`${margin}px`;
+    else if(pos.includes('bottom')) weather.style.bottom=`${margin}px`;
+    else weather.style.top='50%';
+
+    const transforms=[`scale(${scale})`];
+    if(!pos.includes('left')&&!pos.includes('right')) transforms.push('translateX(-50%)');
+    if(!pos.includes('top')&&!pos.includes('bottom')) transforms.push('translateY(-50%)');
+    weather.style.transform=transforms.join(' ');
+
+    const key=`${cfg.park}|${cfg.position}|${cfg.size}|${cfg.unit}`;
+    if(key===weatherConfigKey){
+      weather.style.display='block';
+      return;
+    }
+    weatherConfigKey=key;
+    clearInterval(weatherRefreshTimer);
+    refreshWeather(cfg);
+    weatherRefreshTimer=setInterval(()=>refreshWeather(cfg),600000);
+  }
+
+
+  const RADAR_LOCATIONS={
+    wdw:{label:'Walt Disney World',lat:28.3852,lon:-81.5639},
+    mk:{label:'Magic Kingdom',lat:28.417663,lon:-81.581212},
+    epcot:{label:'EPCOT',lat:28.374694,lon:-81.549404},
+    hs:{label:"Disney's Hollywood Studios",lat:28.357529,lon:-81.558271},
+    ak:{label:"Disney's Animal Kingdom",lat:28.359566,lon:-81.591172},
+    springs:{label:'Disney Springs',lat:28.371496,lon:-81.519005}
+  };
+
+  function tileXY(lat,lon,z){
+    const n=Math.pow(2,z);
+    const x=(lon+180)/360*n;
+    const latRad=lat*Math.PI/180;
+    const y=(1-Math.asinh(Math.tan(latRad))/Math.PI)/2*n;
+    return{x,y};
+  }
+
+  function buildBaseMap(loc,z){
+    radarBase.innerHTML='';
+    const c=tileXY(loc.lat,loc.lon,z);
+    const cx=Math.floor(c.x),cy=Math.floor(c.y);
+    const px=(c.x-cx)*256,py=(c.y-cy)*256;
+
+    for(let dy=-1;dy<=1;dy++){
+      for(let dx=-1;dx<=1;dx++){
+        const tx=cx+dx,ty=cy+dy;
+        const img=document.createElement('img');
+        img.src=`https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`;
+        img.alt='';
+        img.style.left=`${256 + dx*256 - px}px`;
+        img.style.top=`${256 + dy*256 - py}px`;
+        radarBase.appendChild(img);
+      }
+    }
+  }
+
+  function renderRadarFrame(frame,host,loc,z,token){
+    if(token!==radarToken || !frame)return;
+    const c=tileXY(loc.lat,loc.lon,z);
+    const cx=Math.floor(c.x),cy=Math.floor(c.y);
+    const px=(c.x-cx)*256,py=(c.y-cy)*256;
+    const frag=document.createDocumentFragment();
+
+    for(let dy=-1;dy<=1;dy++){
+      for(let dx=-1;dx<=1;dx++){
+        const tx=cx+dx,ty=cy+dy;
+        const img=document.createElement('img');
+        img.src=`${host}${frame.path}/256/${z}/${tx}/${ty}/2/1_1.png`;
+        img.alt='';
+        img.style.left=`${256 + dx*256 - px}px`;
+        img.style.top=`${256 + dy*256 - py}px`;
+        frag.appendChild(img);
+      }
+    }
+    radarLayer.replaceChildren(frag);
+    const d=new Date(Number(frame.time)*1000);
+    radarTime.textContent=`Radar: ${d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`;
+  }
+
+  async function loadRadar(cfg,token){
+    const loc=RADAR_LOCATIONS[cfg.park]||RADAR_LOCATIONS.wdw;
+    radarTitle.textContent=`Live Radar • ${loc.label}`;
+    radarTime.textContent='Loading…';
+    buildBaseMap(loc,cfg.zoom);
+
+    try{
+      const r=await fetch('/radar-data',{cache:'no-store'});
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const data=await r.json();
+      if(token!==radarToken)return;
+
+      radarFrames=Array.isArray(data.frames)?data.frames:[];
+      if(!radarFrames.length)throw new Error('No radar frames');
+
+      let i=0;
+      const host=data.host||'https://tilecache.rainviewer.com';
+      const play=()=>{
+        if(token!==radarToken || !radarFrames.length)return;
+        renderRadarFrame(radarFrames[i%radarFrames.length],host,loc,cfg.zoom,token);
+        i=(i+1)%radarFrames.length;
+      };
+      play();
+      clearInterval(radarAnimTimer);
+      radarAnimTimer=setInterval(play,800);
+      radar.style.display='block';
+    }catch(e){
+      console.warn('Radar:',e);
+      if(token===radarToken){
+        radarTime.textContent='Radar unavailable';
+        radar.style.display='block';
+      }
+    }
+  }
+
+  function stopRadar(){
+    radarToken++;
+    clearInterval(radarAnimTimer); radarAnimTimer=null;
+    clearInterval(radarRefreshTimer); radarRefreshTimer=null;
+    radarFrames=[]; radarFrameIndex=0; radarConfigKey='';
+    radarLayer.replaceChildren();
+    radarBase.replaceChildren();
+    radar.style.display='none';
+  }
+
+  function applyRadar(cfg){
+    if(!cfg){ stopRadar(); return; }
+
+    const size=Math.max(20,Math.min(100,Number(cfg.size||55)));
+    const scale=size/100;
+    const pos=cfg.position||'center';
+    radar.style.left=radar.style.right=radar.style.top=radar.style.bottom='auto';
+
+    const margin=16;
+    if(pos.includes('left'))radar.style.left=`${margin}px`;
+    else if(pos.includes('right'))radar.style.right=`${margin}px`;
+    else radar.style.left='50%';
+
+    if(pos.includes('top'))radar.style.top=`${margin}px`;
+    else if(pos.includes('bottom'))radar.style.bottom=`${margin}px`;
+    else radar.style.top='50%';
+
+    const transforms=[`scale(${scale})`];
+    if(!pos.includes('left')&&!pos.includes('right'))transforms.push('translateX(-50%)');
+    if(!pos.includes('top')&&!pos.includes('bottom'))transforms.push('translateY(-50%)');
+    radar.style.transform=transforms.join(' ');
+
+    const key=`${cfg.park}|${cfg.position}|${cfg.size}|${cfg.zoom}`;
+    if(key===radarConfigKey){
+      radar.style.display='block';
+      return;
+    }
+
+    radarConfigKey=key;
+    clearInterval(radarAnimTimer);
+    clearInterval(radarRefreshTimer);
+    radarLayer.replaceChildren();
+    radarBase.replaceChildren();
+    const token=++radarToken;
+    loadRadar(cfg,token);
+
+    // Refresh metadata/frames every 10 minutes only while radar is shown.
+    radarRefreshTimer=setInterval(()=>{
+      if(token!==radarToken)return;
+      clearInterval(radarAnimTimer);
+      loadRadar(cfg,token);
+    },600000);
+  }
+
+  let lineTimerState=null,lineTimerTick=null;
+  function fmtLineTimer(ms){const t=Math.floor(Math.max(0,Number(ms||0))/1000);return [Math.floor(t/3600),Math.floor((t%3600)/60),t%60].map(v=>String(v).padStart(2,'0')).join(':')}
+  function elapsedLineTimer(t){let ms=Math.max(0,Number(t?.accumulatedMs||0));if(t?.running&&t.startedAt)ms+=Math.max(0,Date.now()-Number(t.startedAt));return ms}
+  function renderLineTimer(){const t=lineTimerState;if(!t||!t.visible){lineTimer.style.display='none';return}lineTimer.style.display='block';lineTimerName.textContent=(t.name||'Line Timer').trim()||'Line Timer';const rep=typeof t.reportedWait==='number'?`${t.reportedWait} min`:(t.reportedStatus||'—');lineTimerReported.textContent=`Reported Wait: ${rep}`;lineTimerTime.textContent=fmtLineTimer(elapsedLineTimer(t));lineTimerLabel.textContent=t.running?'Our Wait':'Final Actual Wait'}
+  function applyLineTimer(t){lineTimerState=t||null;clearInterval(lineTimerTick);lineTimerTick=null;renderLineTimer();if(t?.visible&&t?.running)lineTimerTick=setInterval(renderLineTimer,250)}
+
+  function applyText(t){
+    if(!t?.value){textInner.textContent='';text.style.display='none';return}
+    textInner.textContent=t.value;text.style.display='block';
+    text.style.top=t.position==='top'?'5%':'';text.style.bottom=t.position==='top'?'':'5%';
+    text.style.color=t.color||'#ffffff';text.style.fontSize=`${Math.max(18,Math.min(120,Number(t.size||48)))}px`;
+    const fonts={system:'system-ui,-apple-system,Segoe UI,sans-serif',arial:'Arial,sans-serif',georgia:'Georgia,serif',impact:'Impact,Haettenschweiler,sans-serif',comic:'"Comic Sans MS","Comic Sans",cursive'};
+    text.style.fontFamily=fonts[t.font]||fonts.system;
+    const scrolling=Boolean(t.scroll);text.className=scrolling?'scroll':'static';
+    textInner.style.animation='none';void textInner.offsetWidth;
+    if(scrolling){const seconds=Math.max(5,Math.min(40,Number(t.scrollSeconds||12)));textInner.style.animation=`ticker ${seconds}s linear infinite`}
+    else{textInner.style.transform='none'}
+  }
+
+  function placeTriviaWrap(tr){
+    const wrap=trivia.querySelector('.trivia-wrap');
+    if(!wrap)return;
+    const pos=allowedPositions.has(String(tr.position||''))?String(tr.position):'center';
+    const size=Math.max(40,Math.min(100,Number(tr.size||90)));
+    wrap.style.width=`min(${size}vw,1120px)`;
+    wrap.style.left=wrap.style.right=wrap.style.top=wrap.style.bottom='auto';
+    wrap.style.transform='none';
+    const margin='3%';
+    if(pos.includes('left'))wrap.style.left=margin;else if(pos.includes('right'))wrap.style.right=margin;else wrap.style.left='50%';
+    if(pos.includes('top'))wrap.style.top=margin;else if(pos.includes('bottom'))wrap.style.bottom=margin;else wrap.style.top='50%';
+    const transforms=[];
+    if(!pos.includes('left')&&!pos.includes('right'))transforms.push('translateX(-50%)');
+    if(!pos.includes('top')&&!pos.includes('bottom'))transforms.push('translateY(-50%)');
+    wrap.style.transform=transforms.join(' ');
+  }
+
+  function applyTriviaScoreTicker(tr){
+    if(!triviaScoreTicker||!triviaScoreTickerTrack)return;
+    const rows=Array.isArray(tr?.tickerRows)?tr.tickerRows:[];
+    if(!tr?.tickerVisible||!rows.length){triviaScoreTicker.style.display='none';triviaScoreTickerTrack.replaceChildren();return}
+    function group(){
+      const g=document.createElement('div');g.className='score-group';
+      rows.forEach(row=>{
+        const item=document.createElement('span');item.className='score-item';
+        const rank=Number(row?.rank||0),name=String(row?.name||'Player'),score=Number(row?.score||0);
+        item.append(document.createTextNode((rank?('#'+rank+' '):'')+name+' — '));
+        const b=document.createElement('b');b.textContent=score+' pt'+(score===1?'':'s');item.appendChild(b);g.appendChild(item);
+      });
+      return g;
+    }
+    triviaScoreTickerTrack.replaceChildren(group(),group());
+    triviaScoreTickerTrack.style.animationName='none';void triviaScoreTickerTrack.offsetWidth;triviaScoreTickerTrack.style.animationName='triviaScoreScroll';
+    triviaScoreTicker.style.display='block';
+  }
+
+  function applyTrivia(t){
+    if(!trivia)return;
+    const tr=t||{};
+    applyTriviaScoreTicker(tr);
+    if(!tr.visible || tr.phase==='idle'){
+      trivia.style.display='none';trivia.setAttribute('aria-hidden','true');return;
+    }
+    const phase=String(tr.phase||'open');
+    trivia.className=phase==='revealed'?'revealed':phase==='leaderboard'?'leaderboard':phase==='tiebreaker'?'tiebreaker':'';
+    trivia.style.display='block';trivia.setAttribute('aria-hidden','false');placeTriviaWrap(tr);
+    triviaKicker.textContent=Number(tr.questionNumber)>0?`Trivia • Question ${Number(tr.questionNumber)}`:'Trivia';
+    const phaseLabels={question:'Question',open:'Answers Open',closed:'Answers Closed',revealed:'Correct Answer',leaderboard:'Leaderboard',tiebreaker:'Tiebreaker Winner'};
+    triviaPhase.textContent=phaseLabels[phase]||'Trivia';
+    triviaQuestion.textContent=phase==='tiebreaker'?`🏆 ${String(tr?.tiebreaker?.winnerName||'Winner')}`:String(tr.question||'');
+    const answers=tr.answers||{};
+    triviaAnswers.querySelectorAll('.trivia-answer').forEach(el=>{
+      const choice=el.dataset.choice;el.querySelector('.trivia-answer-text').textContent=String(answers[choice]||'');
+      el.classList.toggle('correct',phase==='revealed'&&choice===String(tr.correct||'').toUpperCase());
+    });
+    const explanation=phase==='revealed'?String(tr.explanation||'').trim():'';
+    triviaExplanation.textContent=explanation;triviaExplanation.classList.toggle('has-text',Boolean(explanation));
+    triviaRanks.replaceChildren();
+    if(phase==='leaderboard'){
+      const rows=Array.isArray(tr.leaderboard)?tr.leaderboard.slice(0,10):[];
+      if(!rows.length){const empty=document.createElement('div');empty.className='trivia-empty';empty.textContent='Scores will appear here';triviaRanks.appendChild(empty)}
+      else rows.forEach(row=>{
+        const el=document.createElement('div');el.className='trivia-rank';
+        const rank=document.createElement('span');rank.className='trivia-rank-num';rank.textContent=`#${Number(row?.rank||1)}`;
+        const name=document.createElement('span');name.textContent=String(row?.name||'Player');
+        const score=document.createElement('span');score.className='trivia-score';score.textContent=String(Number(row?.score||0));
+        el.append(rank,name,score);triviaRanks.appendChild(el);
+      });
+    }
+  }
+
+  function applyState(state){
+    renderGraphics(state);
+    if(state.video?.src){
+      const desired=new URL(state.video.src,location.href).href;
+      video.style.objectFit=state.video.fit||'contain';positionVideo(video,state.video.position);video.volume=Math.max(0,Math.min(1,Number(state.video.volume??1)));video.style.display='block';
+      if(video.src!==desired){currentVideoSrc=state.video.src;video.src=state.video.src;video.play().catch(()=>{})}
+    } else {currentVideoSrc='';video.pause();video.removeAttribute('src');video.load();video.style.display='none'}
+    applyText(state.text);
+    const newRideSettings=state.rideSettings||{};
+    const sig=JSON.stringify(newRideSettings);
+    if(sig!==rideSettingsSignature){rideSettingsState=newRideSettings;rideSettingsSignature=sig;rideConfigKey=''}
+    applyRideWait(state.rideWait);
+    applyWeather(state.weather);
+    applyRadar(state.radar);
+    applyLineTimer(state.lineTimer);
+    applyTrivia(state.trivia);
+  }
+
+  video.addEventListener('ended',()=>{video.style.display='none';if(ws?.readyState===1)ws.send(JSON.stringify({type:'event',event:'videoEnded',src:currentVideoSrc}))});
+  function connect(){
+    const proto=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}?role=overlay`);
+    ws.onopen=()=>{retry=1000;setStatus('connected')};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state')applyState(m.state||{})}catch{}};
+    ws.onclose=()=>{setStatus('reconnecting');setTimeout(connect,retry);retry=Math.min(retry*1.6,10000)};ws.onerror=()=>ws.close();
+  } connect();
+})();
+</script>
+<!-- Member overlay uses the SAME existing Firebase memberTriggers feed as OBS. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+(function(){
+  const firebaseConfig={
+    apiKey:"AIzaSyCN13hajyyYKXyJX0p7cJgwmC-lSK3l0eM",
+    authDomain:"bouncy-avatar.firebaseapp.com",
+    databaseURL:"https://bouncy-avatar-default-rtdb.firebaseio.com",
+    projectId:"bouncy-avatar",
+    storageBucket:"bouncy-avatar.firebasestorage.app",
+    messagingSenderId:"802651000636",
+    appId:"1:802651000636:web:9e5edc79958b9ff909d839"
+  };
+
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const ref=firebase.database().ref("memberTriggers");
+    const group=document.getElementById("memberGroup");
+    const textWrap=document.getElementById("memberTextWrap");
+    const nameEl=document.getElementById("memberName");
+    let queue=[];
+    let busy=false;
+
+    function fitName(){
+      let size=70;
+      nameEl.style.fontSize=size+"px";
+      while(nameEl.scrollWidth>nameEl.clientWidth && size>30){
+        size-=2;
+        nameEl.style.fontSize=size+"px";
+      }
+    }
+
+    function playNext(){
+      if(busy || !queue.length) return;
+      busy=true;
+      const item=queue.shift();
+      nameEl.textContent=item.name || "Member";
+      fitName();
+      group.className="";
+      textWrap.className="";
+      void group.offsetWidth;
+      group.classList.add("show");
+      textWrap.classList.add("show");
+
+      setTimeout(()=>{
+        textWrap.classList.remove("show");
+        textWrap.classList.add("hide");
+        setTimeout(()=>{
+          group.classList.remove("show");
+          group.classList.add("hide");
+          setTimeout(()=>{
+            group.className="";
+            textWrap.className="";
+            busy=false;
+            playNext();
+          },500);
+        },260);
+      },5000);
+    }
+
+    const startedAt=Date.now();
+    ref.on("child_added",snap=>{
+      const data=snap.val()||{};
+      const at=Number(data.at||0);
+      if(at && at<startedAt-3000) return;
+      queue.push({name:String(data.name||"Member")});
+      playNext();
+    });
+
+    // Optional browser test: overlay.html?room=mobiletest&memberTest=THE_BIG_BEN_THEORY
+    const testName=new URLSearchParams(location.search).get("memberTest");
+    if(testName){
+      setTimeout(()=>{queue.push({name:testName});playNext();},700);
+    }
+
+    window.previewMember=function(name){
+      queue.push({name:name||"THE_BIG_BEN_THEORY"});
+      playNext();
+    };
+  }catch(err){
+    console.warn("Member overlay initialization failed",err);
+  }
+})();
+</script>
+
+</body>
+</html>
