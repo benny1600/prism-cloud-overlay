@@ -644,11 +644,11 @@
     const d=triviaDraft();
     if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}
     const current=latestState.trivia||{};
-    const sameHidden=current.visible===false && current.phase!=='idle' && String(current.question||'')===d.question;
-    if(sameHidden){
+    const sameCurrent=current.phase!=='idle' && String(current.question||'')===d.question;
+    if(sameCurrent){
       triviaSend('triviaShowCurrent');
       setTriviaStatus(String(current.phase||'open').toUpperCase());
-      note('Current trivia restored — answers preserved');
+      note(current.visible===false?'Current trivia restored — answers preserved':'Current trivia already showing — answers preserved');
       return;
     }
     const sheetId=loadedSheetQuestionId;
