@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, trivia: { visible: false, phase: "idle", questionId: "", questionNumber: 0, question: "", answers: { A: "", B: "", C: "", D: "" }, correct: "", explanation: "", answerCount: 0, leaderboard: [], position: "center", size: 90, tickerVisible: false, tickerRows: [], tiebreaker: null }, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, trivia: { visible: false, phase: "idle", questionId: "", questionNumber: 0, question: "", answers: { A: "", B: "", C: "", D: "" }, correct: "", explanation: "", answerCount: 0, leaderboard: [], position: "center", size: 90, tickerVisible: false, tickerRows: [], tickerSize: 100, tickerSpeed: 42, tiebreaker: null }, updatedAt: null });
 const TRIVIA_SHEET_URL = "https://script.google.com/macros/s/AKfycbxm50Ypsv--vcVlbFLPb7qK0NO1JHht9ylxUpfawuRJeRf6UExGpffuIaCx3JyH_1TphA/exec";
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -110,10 +110,13 @@ function normalizeTrivia(value) {
     size: Math.max(40,Math.min(100,Number(src.size||90))),
     tickerVisible: Boolean(src.tickerVisible),
     tickerRows: Array.isArray(src.tickerRows)?src.tickerRows.slice(0,500).map(mapRow):[],
+    tickerSize: Math.max(60,Math.min(150,Number(src.tickerSize||100))),
+    tickerSpeed: Math.max(12,Math.min(90,Number(src.tickerSpeed||42))),
     tiebreaker: src.tiebreaker&&typeof src.tiebreaker==="object"?{
       winnerName:String(src.tiebreaker.winnerName||"").slice(0,100),
       score:Math.max(0,Math.floor(Number(src.tiebreaker.score||0))),
       tiedCount:Math.max(0,Math.floor(Number(src.tiebreaker.tiedCount||0))),
+      tiedNames:Array.isArray(src.tiebreaker.tiedNames)?src.tiebreaker.tiedNames.slice(0,50).map(x=>String(x||"").slice(0,100)).filter(Boolean):[],
       pickedAt:Number(src.tiebreaker.pickedAt||0)||null
     }:null
   };
@@ -490,7 +493,7 @@ export class OverlayRoom extends DurableObject {
         await this.ctx.storage.delete("triviaAnswers");await this.ctx.storage.delete("triviaTiebreaker");
         const prior=normalizeTrivia(current.trivia);
         const scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
-        next.trivia={visible:true,phase:"open",questionId,questionNumber:Math.max(0,Math.floor(Number(command.questionNumber||0))),question,answers:{A:String(answers.A).slice(0,240),B:String(answers.B).slice(0,240),C:String(answers.C).slice(0,240),D:String(answers.D).slice(0,240)},correct:"",explanation:"",answerCount:0,leaderboard:prior.leaderboard,position:["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position||""))?String(command.position):prior.position,size:Math.max(40,Math.min(100,Number(command.size||prior.size||90))),tickerVisible:prior.tickerVisible,tickerRows:buildTriviaLeaderboard(scores,500),tiebreaker:null};
+        next.trivia={visible:true,phase:"open",questionId,questionNumber:Math.max(0,Math.floor(Number(command.questionNumber||0))),question,answers:{A:String(answers.A).slice(0,240),B:String(answers.B).slice(0,240),C:String(answers.C).slice(0,240),D:String(answers.D).slice(0,240)},correct:"",explanation:"",answerCount:0,leaderboard:prior.leaderboard,position:["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position||""))?String(command.position):prior.position,size:Math.max(40,Math.min(100,Number(command.size||prior.size||90))),tickerVisible:prior.tickerVisible,tickerRows:buildTriviaLeaderboard(scores,500),tickerSize:prior.tickerSize,tickerSpeed:prior.tickerSpeed,tiebreaker:null};
         break;
       }
       case "triviaOpen":
@@ -539,17 +542,22 @@ export class OverlayRoom extends DurableObject {
         next.trivia={...tr,tickerVisible:Boolean(command.visible),tickerRows:buildTriviaLeaderboard(scores,500)};
         break;
       }
+      case "triviaSetTickerSettings": {
+        const tr=normalizeTrivia(current.trivia);
+        next.trivia={...tr,tickerSize:Math.max(60,Math.min(150,Number(command.size||tr.tickerSize||100))),tickerSpeed:Math.max(12,Math.min(90,Number(command.speed||tr.tickerSpeed||42)))};
+        break;
+      }
       case "triviaPickTiebreaker": {
         const scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
         const players=Object.values(scores);if(!players.length)return json({ok:false,error:"No scored players yet"},{status:409});
         const top=Math.max(...players.map(x=>x.score));const tied=players.filter(x=>x.score===top);
         if(tied.length<2)return json({ok:false,error:"There is no first-place tie"},{status:409});
         let existing=await this.ctx.storage.get("triviaTiebreaker");
-        if(!existing||Number(existing.score)!==top||Number(existing.tiedCount)!==tied.length){
+        if(!existing||Number(existing.score)!==top||Number(existing.tiedCount)!==tied.length||!Array.isArray(existing.tiedNames)){
           const max=0x100000000-(0x100000000%tied.length);let n;
           do{n=crypto.getRandomValues(new Uint32Array(1))[0]}while(n>=max);
           const winner=tied[n%tied.length];
-          existing={winnerName:winner.name,winnerUserId:winner.userId,score:top,tiedCount:tied.length,pickedAt:Date.now()};
+          existing={winnerName:winner.name,winnerUserId:winner.userId,score:top,tiedCount:tied.length,tiedNames:tied.map(x=>x.name),pickedAt:Date.now()};
           await this.ctx.storage.put("triviaTiebreaker",existing);
         }
         next.trivia={...normalizeTrivia(current.trivia),visible:true,phase:"tiebreaker",tiebreaker:existing,tickerRows:buildTriviaLeaderboard(scores,500)};
