@@ -520,8 +520,10 @@ export class OverlayRoom extends DurableObject {
         break;
       }
       case "triviaShowLeaderboard": {
+        const trivia=normalizeTrivia(current.trivia);
+        if(trivia.phase==="open") return json({ok:false,error:"Close or reveal the current question before showing the leaderboard"},{status:409});
         const scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
-        next.trivia={...normalizeTrivia(current.trivia),visible:true,phase:"leaderboard",correct:"",explanation:"",leaderboard:buildTriviaLeaderboard(scores),tickerRows:buildTriviaLeaderboard(scores,500)};
+        next.trivia={...trivia,visible:true,phase:"leaderboard",correct:"",explanation:"",leaderboard:buildTriviaLeaderboard(scores),tickerRows:buildTriviaLeaderboard(scores,500)};
         break;
       }
       case "triviaShowCurrent":
