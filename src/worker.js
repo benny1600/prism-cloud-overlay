@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, trivia: { visible: false, phase: "idle", questionId: "", questionNumber: 0, question: "", answers: { A: "", B: "", C: "", D: "" }, correct: "", explanation: "", answerCount: 0, leaderboard: [], position: "center", size: 90, tickerVisible: false, tickerRows: [], tiebreaker: null }, updatedAt: null });
+const TRIVIA_SHEET_URL = "https://script.google.com/macros/s/AKfycbxm50Ypsv--vcVlbFLPb7qK0NO1JHht9ylxUpfawuRJeRf6UExGpffuIaCx3JyH_1TphA/exec";
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml",
@@ -83,9 +84,98 @@ function normalizeRideSettings(value) {
   return out;
 }
 
+function normalizeTrivia(value) {
+  const src = value && typeof value === "object" ? value : {};
+  const answers = src.answers && typeof src.answers === "object" ? src.answers : {};
+  const phase = ["idle","question","open","closed","revealed","leaderboard","tiebreaker"].includes(String(src.phase || "")) ? String(src.phase) : "idle";
+  const positions=["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"];
+  const mapRow=row=>({
+    rank: Math.max(1, Math.floor(Number(row?.rank || 1))),
+    name: String(row?.name || "").slice(0, 100),
+    score: Math.max(0, Math.floor(Number(row?.score || 0))),
+    correct: Math.max(0, Math.floor(Number(row?.correct || 0))),
+    answered: Math.max(0, Math.floor(Number(row?.answered || 0)))
+  });
+  return {
+    visible: Boolean(src.visible), phase,
+    questionId: String(src.questionId || "").slice(0, 120),
+    questionNumber: Math.max(0, Math.floor(Number(src.questionNumber || 0))),
+    question: String(src.question || "").slice(0, 500),
+    answers: {A:String(answers.A||"").slice(0,240),B:String(answers.B||"").slice(0,240),C:String(answers.C||"").slice(0,240),D:String(answers.D||"").slice(0,240)},
+    correct: phase === "revealed" ? String(src.correct || "").toUpperCase().slice(0,1) : "",
+    explanation: phase === "revealed" ? String(src.explanation || "").slice(0,500) : "",
+    answerCount: Math.max(0,Math.floor(Number(src.answerCount||0))),
+    leaderboard: Array.isArray(src.leaderboard)?src.leaderboard.slice(0,20).map(mapRow):[],
+    position: positions.includes(String(src.position||""))?String(src.position):"center",
+    size: Math.max(40,Math.min(100,Number(src.size||90))),
+    tickerVisible: Boolean(src.tickerVisible),
+    tickerRows: Array.isArray(src.tickerRows)?src.tickerRows.slice(0,500).map(mapRow):[],
+    tiebreaker: src.tiebreaker&&typeof src.tiebreaker==="object"?{
+      winnerName:String(src.tiebreaker.winnerName||"").slice(0,100),
+      score:Math.max(0,Math.floor(Number(src.tiebreaker.score||0))),
+      tiedCount:Math.max(0,Math.floor(Number(src.tiebreaker.tiedCount||0))),
+      pickedAt:Number(src.tiebreaker.pickedAt||0)||null
+    }:null
+  };
+}
+
+
+function normalizeTriviaScores(value) {
+  const src = value && typeof value === "object" ? value : {};
+  const out = {};
+  let count = 0;
+  for (const [rawUserId, raw] of Object.entries(src)) {
+    if (count >= 10000) break;
+    const userId = String(rawUserId || "").trim().slice(0, 160);
+    if (!userId || !raw || typeof raw !== "object") continue;
+    out[userId] = {
+      userId,
+      name: String(raw.name || "Viewer").trim().slice(0, 100) || "Viewer",
+      score: Math.max(0, Math.floor(Number(raw.score || 0))),
+      correct: Math.max(0, Math.floor(Number(raw.correct || 0))),
+      answered: Math.max(0, Math.floor(Number(raw.answered || 0)))
+    };
+    count++;
+  }
+  return out;
+}
+
+function buildTriviaLeaderboard(scores, limit = 20) {
+  const rows = Object.values(normalizeTriviaScores(scores)).sort((a, b) =>
+    (b.score - a.score) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+  let previousScore = null;
+  let previousRank = 0;
+  return rows.slice(0, Math.max(1, Math.min(100, Number(limit || 20)))).map((row, index) => {
+    const rank = previousScore === row.score ? previousRank : index + 1;
+    previousScore = row.score;
+    previousRank = rank;
+    return { rank, name: row.name, score: row.score, correct: row.correct, answered: row.answered };
+  });
+}
+
+function getTriviaViewerScore(scores, userId) {
+  const normalized = normalizeTriviaScores(scores);
+  const viewer = normalized[userId];
+  if (!viewer) return { userId, name: "", score: 0, correct: 0, answered: 0, rank: null, totalPlayers: Object.keys(normalized).length };
+  const ordered = Object.values(normalized).sort((a, b) =>
+    (b.score - a.score) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+  let previousScore = null;
+  let previousRank = 0;
+  let rank = null;
+  for (let i = 0; i < ordered.length; i++) {
+    const rowRank = previousScore === ordered[i].score ? previousRank : i + 1;
+    previousScore = ordered[i].score;
+    previousRank = rowRank;
+    if (ordered[i].userId === userId) { rank = rowRank; break; }
+  }
+  return { ...viewer, rank, totalPlayers: ordered.length };
+}
+
 function stateWithDefaults(state) {
   const s = state || {};
-  return { ...DEFAULT_STATE, ...s, currentPark: normalizePark(s.currentPark || DEFAULT_STATE.currentPark), rideSettings: normalizeRideSettings(s.rideSettings), lineTimer: normalizeTimer(s.lineTimer || DEFAULT_STATE.lineTimer) };
+  return { ...DEFAULT_STATE, ...s, currentPark: normalizePark(s.currentPark || DEFAULT_STATE.currentPark), rideSettings: normalizeRideSettings(s.rideSettings), lineTimer: normalizeTimer(s.lineTimer || DEFAULT_STATE.lineTimer), trivia: normalizeTrivia(s.trivia || DEFAULT_STATE.trivia) };
 }
 
 export class OverlayRoom extends DurableObject {
@@ -163,6 +253,37 @@ export class OverlayRoom extends DurableObject {
     for (const socket of this.ctx.getWebSockets()) {
       try { socket.send(payload); } catch {}
     }
+  }
+
+  async finalizeTriviaQuestion(trivia) {
+    const privateTrivia = await this.ctx.storage.get("triviaPrivate");
+    const questionId = String(trivia?.questionId || privateTrivia?.questionId || "").slice(0,120);
+    if (!questionId || !privateTrivia?.correct || String(privateTrivia.questionId||"")!==questionId)
+      return { scores: normalizeTriviaScores(await this.ctx.storage.get("triviaScores")), finalized:false };
+    const finalizedStored=await this.ctx.storage.get("triviaFinalized");
+    const finalizedMap=finalizedStored&&typeof finalizedStored==="object"?finalizedStored:{};
+    const existingScores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+    if(finalizedMap[questionId])return{scores:existingScores,finalized:false};
+    const storedAnswers=await this.ctx.storage.get("triviaAnswers");
+    const answerMap=storedAnswers&&typeof storedAnswers==="object"?storedAnswers:{};
+    const correctChoice=String(privateTrivia.correct||"").toUpperCase().slice(0,1);
+    const scores={...existingScores};
+    const oldAudit=await this.ctx.storage.get("triviaAudit");
+    const audit=Array.isArray(oldAudit)?oldAudit.slice(-4500):[];
+    const sessionId=String((await this.ctx.storage.get("triviaSessionId"))||"");
+    for(const answer of Object.values(answerMap)){
+      if(!answer||String(answer.questionId||"")!==questionId)continue;
+      const userId=String(answer.userId||"").trim().slice(0,160);if(!userId)continue;
+      const prior=scores[userId]||{userId,name:"Viewer",score:0,correct:0,answered:0};
+      const isCorrect=String(answer.choice||"").toUpperCase()===correctChoice;
+      scores[userId]={userId,name:String(answer.name||prior.name||"Viewer").trim().slice(0,100)||"Viewer",score:prior.score+(isCorrect?1:0),correct:prior.correct+(isCorrect?1:0),answered:prior.answered+1};
+      audit.push({sessionId,questionId,questionNumber:Number(privateTrivia.questionNumber||trivia.questionNumber||0),sheetQuestionId:String(privateTrivia.sheetQuestionId||""),question:String(privateTrivia.question||trivia.question||"").slice(0,500),userId,name:String(answer.name||"Viewer").slice(0,100),choice:String(answer.choice||"").toUpperCase().slice(0,1),correctChoice,isCorrect,answeredAt:new Date(Number(answer.answeredAt||Date.now())).toISOString()});
+    }
+    finalizedMap[questionId]=Date.now();
+    await this.ctx.storage.put("triviaScores",scores);
+    await this.ctx.storage.put("triviaFinalized",finalizedMap);
+    await this.ctx.storage.put("triviaAudit",audit.slice(-5000));
+    return{scores,finalized:true};
   }
 
   async handleCommand(command) {
@@ -355,7 +476,125 @@ export class OverlayRoom extends DurableObject {
       }
       case "timerShow": next.lineTimer = { ...normalizeTimer(next.lineTimer), visible: true }; break;
       case "timerHide": next.lineTimer = { ...normalizeTimer(next.lineTimer), visible: false }; break;
-      case "clear": next = { ...DEFAULT_STATE, currentPark: normalizePark(next.currentPark), rideSettings: normalizeRideSettings(next.rideSettings) }; break;
+      case "triviaSetQuestion": {
+        const question=String(command.question||"").trim().slice(0,500);
+        const answers=command.answers&&typeof command.answers==="object"?command.answers:{};
+        const correct=String(command.correct||"").trim().toUpperCase();
+        if(!question)return json({ok:false,error:"Missing trivia question"},{status:400});
+        if(!["A","B","C","D"].includes(correct))return json({ok:false,error:"Correct answer must be A, B, C, or D"},{status:400});
+        for(const key of ["A","B","C","D"])if(!String(answers[key]||"").trim())return json({ok:false,error:`Missing answer ${key}`},{status:400});
+        let sessionId=await this.ctx.storage.get("triviaSessionId");
+        if(!sessionId){sessionId=crypto.randomUUID();await this.ctx.storage.put("triviaSessionId",sessionId)}
+        const questionId=String(command.questionId||crypto.randomUUID()).slice(0,120);
+        await this.ctx.storage.put("triviaPrivate",{questionId,correct,explanation:String(command.explanation||"").slice(0,500),questionNumber:Math.max(0,Math.floor(Number(command.questionNumber||0))),sheetQuestionId:String(command.sheetQuestionId||"").slice(0,120),question,answers:{A:String(answers.A).slice(0,240),B:String(answers.B).slice(0,240),C:String(answers.C).slice(0,240),D:String(answers.D).slice(0,240)}});
+        await this.ctx.storage.delete("triviaAnswers");await this.ctx.storage.delete("triviaTiebreaker");
+        const prior=normalizeTrivia(current.trivia);
+        const scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+        next.trivia={visible:true,phase:"open",questionId,questionNumber:Math.max(0,Math.floor(Number(command.questionNumber||0))),question,answers:{A:String(answers.A).slice(0,240),B:String(answers.B).slice(0,240),C:String(answers.C).slice(0,240),D:String(answers.D).slice(0,240)},correct:"",explanation:"",answerCount:0,leaderboard:prior.leaderboard,position:["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position||""))?String(command.position):prior.position,size:Math.max(40,Math.min(100,Number(command.size||prior.size||90))),tickerVisible:prior.tickerVisible,tickerRows:buildTriviaLeaderboard(scores,500),tiebreaker:null};
+        break;
+      }
+      case "triviaOpen":
+        if (!normalizeTrivia(current.trivia).question) return json({ ok: false, error: "Set a trivia question first" }, { status: 400 });
+        next.trivia = { ...normalizeTrivia(current.trivia), visible: true, phase: "open", correct: "", explanation: "" };
+        break;
+      case "triviaClose": {
+        const trivia = normalizeTrivia(current.trivia);
+        const result = await this.finalizeTriviaQuestion(trivia);
+        next.trivia = { ...trivia, visible: true, phase: "closed", correct: "", explanation: "", leaderboard: buildTriviaLeaderboard(result.scores), tickerRows: buildTriviaLeaderboard(result.scores,500) };
+        break;
+      }
+      case "triviaReveal": {
+        const trivia = normalizeTrivia(current.trivia);
+        const privateTrivia = await this.ctx.storage.get("triviaPrivate");
+        if (!privateTrivia?.correct) return json({ ok: false, error: "No correct answer is stored for this question" }, { status: 400 });
+        const result = await this.finalizeTriviaQuestion(trivia);
+        next.trivia = {
+          ...trivia,
+          visible: true,
+          phase: "revealed",
+          correct: String(privateTrivia.correct || "").toUpperCase().slice(0, 1),
+          explanation: String(privateTrivia.explanation || "").slice(0, 500),
+          leaderboard: buildTriviaLeaderboard(result.scores),
+          tickerRows: buildTriviaLeaderboard(result.scores,500)
+        };
+        break;
+      }
+      case "triviaShowLeaderboard": {
+        const scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+        next.trivia={...normalizeTrivia(current.trivia),visible:true,phase:"leaderboard",correct:"",explanation:"",leaderboard:buildTriviaLeaderboard(scores),tickerRows:buildTriviaLeaderboard(scores,500)};
+        break;
+      }
+      case "triviaShowCurrent":
+        next.trivia={...normalizeTrivia(current.trivia),visible:true};
+        break;
+      case "triviaSetDisplay": {
+        const tr=normalizeTrivia(current.trivia),positions=["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"];
+        next.trivia={...tr,position:positions.includes(String(command.position||""))?String(command.position):tr.position,size:Math.max(40,Math.min(100,Number(command.size||tr.size||90)))};
+        break;
+      }
+      case "triviaSetTicker": {
+        const tr=normalizeTrivia(current.trivia),scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+        next.trivia={...tr,tickerVisible:Boolean(command.visible),tickerRows:buildTriviaLeaderboard(scores,500)};
+        break;
+      }
+      case "triviaPickTiebreaker": {
+        const scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+        const players=Object.values(scores);if(!players.length)return json({ok:false,error:"No scored players yet"},{status:409});
+        const top=Math.max(...players.map(x=>x.score));const tied=players.filter(x=>x.score===top);
+        if(tied.length<2)return json({ok:false,error:"There is no first-place tie"},{status:409});
+        let existing=await this.ctx.storage.get("triviaTiebreaker");
+        if(!existing||Number(existing.score)!==top||Number(existing.tiedCount)!==tied.length){
+          const max=0x100000000-(0x100000000%tied.length);let n;
+          do{n=crypto.getRandomValues(new Uint32Array(1))[0]}while(n>=max);
+          const winner=tied[n%tied.length];
+          existing={winnerName:winner.name,winnerUserId:winner.userId,score:top,tiedCount:tied.length,pickedAt:Date.now()};
+          await this.ctx.storage.put("triviaTiebreaker",existing);
+        }
+        next.trivia={...normalizeTrivia(current.trivia),visible:true,phase:"tiebreaker",tiebreaker:existing,tickerRows:buildTriviaLeaderboard(scores,500)};
+        break;
+      }
+      case "triviaGetAudit": {
+        const audit=await this.ctx.storage.get("triviaAudit");
+        return json({ok:true,audit:Array.isArray(audit)?audit:[]});
+      }
+      case "triviaClearAudit":
+        await this.ctx.storage.delete("triviaAudit");
+        return json({ok:true});
+      case "triviaHide":
+        next.trivia = { ...normalizeTrivia(current.trivia), visible: false };
+        break;
+      case "triviaAnswer": {
+        const trivia = normalizeTrivia(current.trivia);
+        if (trivia.phase !== "open") return json({ ok: false, error: "Trivia answers are closed" }, { status: 409 });
+        const userId = String(command.userId || "").trim().slice(0, 160);
+        const name = String(command.name || command.displayName || "").trim().slice(0, 100);
+        const choice = String(command.choice || command.answer || "").trim().toUpperCase();
+        if (!userId) return json({ ok: false, error: "Missing viewer userId" }, { status: 400 });
+        if (!["A","B","C","D"].includes(choice)) return json({ ok: false, error: "Answer must be A, B, C, or D" }, { status: 400 });
+        const stored = await this.ctx.storage.get("triviaAnswers");
+        const answerMap = stored && typeof stored === "object" ? stored : {};
+        if (answerMap[userId]) return json({ ok: false, error: "Viewer already answered", duplicate: true }, { status: 409 });
+        answerMap[userId] = { userId, name, choice, answeredAt: Date.now(), questionId: trivia.questionId };
+        await this.ctx.storage.put("triviaAnswers", answerMap);
+        next.trivia = { ...trivia, answerCount: Object.keys(answerMap).length };
+        break;
+      }
+      case "triviaGetScore": {
+        const userId = String(command.userId || "").trim().slice(0, 160);
+        if (!userId) return json({ ok: false, error: "Missing viewer userId" }, { status: 400 });
+        const scores = normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+        return json({ ok: true, viewer: getTriviaViewerScore(scores, userId) });
+      }
+      case "triviaReset":
+        await this.ctx.storage.delete("triviaPrivate");
+        await this.ctx.storage.delete("triviaAnswers");
+        await this.ctx.storage.delete("triviaScores");
+        await this.ctx.storage.delete("triviaFinalized");
+        await this.ctx.storage.delete("triviaTiebreaker");
+        await this.ctx.storage.put("triviaSessionId", crypto.randomUUID());
+        next.trivia = { ...DEFAULT_STATE.trivia };
+        break;
+      case "clear": next = { ...DEFAULT_STATE, currentPark: normalizePark(next.currentPark), rideSettings: normalizeRideSettings(next.rideSettings), trivia: normalizeTrivia(next.trivia) }; break;
       default: return json({ ok: false, error: "Unknown action" }, { status: 400 });
     }
 
@@ -542,6 +781,44 @@ async function serveRadarData() {
   }
 }
 
+async function getTriviaSheetQuestion(url) {
+  const upstreamUrl = new URL(TRIVIA_SHEET_URL);
+  upstreamUrl.searchParams.set("action", "getQuestion");
+  const category = String(url.searchParams.get("category") || "").trim();
+  const difficulty = String(url.searchParams.get("difficulty") || "").trim();
+  if (category) upstreamUrl.searchParams.set("category", category);
+  if (difficulty) upstreamUrl.searchParams.set("difficulty", difficulty);
+  try {
+    const upstream = await fetch(upstreamUrl.toString(), { headers: { accept: "application/json" }, redirect: "follow" });
+    if (!upstream.ok) throw new Error(`Google Sheet HTTP ${upstream.status}`);
+    const data = await upstream.json();
+    if (!data?.ok) return json({ ok: false, error: data?.error || "Unable to load trivia question" }, { status: 404 });
+    return json(data);
+  } catch (error) {
+    return json({ ok: false, error: "Unable to load trivia question from Google Sheet" }, { status: 502 });
+  }
+}
+
+async function markTriviaSheetQuestionUsed(request) {
+  const body = await request.json().catch(() => ({}));
+  const id = String(body?.id || "").trim().slice(0, 120);
+  if (!id) return json({ ok: false, error: "Question ID is required" }, { status: 400 });
+  try {
+    const upstream = await fetch(TRIVIA_SHEET_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ action: "markUsed", id }),
+      redirect: "follow"
+    });
+    if (!upstream.ok) throw new Error(`Google Sheet HTTP ${upstream.status}`);
+    const data = await upstream.json();
+    if (!data?.ok) return json({ ok: false, error: data?.error || "Unable to mark question used" }, { status: 400 });
+    return json(data);
+  } catch (error) {
+    return json({ ok: false, error: "Unable to mark trivia question used in Google Sheet" }, { status: 502 });
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -593,6 +870,8 @@ export default {
       const roomName = decodeURIComponent(parts[1] || "default");
       const action = parts[2] || "";
       if (!isAuthorized(request, env)) return json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      if (action === "trivia-question" && request.method === "GET") return getTriviaSheetQuestion(url);
+      if (action === "trivia-mark-used" && request.method === "POST") return markTriviaSheetQuestionUsed(request);
       const id = env.OVERLAY_ROOMS.idFromName(roomName);
       const stub = env.OVERLAY_ROOMS.get(id);
       if (action === "command") return stub.fetch(new Request("https://room/command", { method: request.method, headers: request.headers, body: request.body }));
