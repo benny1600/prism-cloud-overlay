@@ -1,13 +1,32 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=10,user-scalable=yes,viewport-fit=cover">
 <title>Mobile Overlay Control</title>
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0e0f12;color:#f6f7f9}button,input,select{font:inherit}main{max-width:900px;margin:auto;padding:14px 14px 90px}.top{position:sticky;top:0;z-index:20;background:rgba(14,15,18,.96);backdrop-filter:blur(8px);padding:10px 0}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.grow{flex:1}.status{font-size:13px;opacity:.75}.tabs{display:flex;gap:8px;margin-top:10px}.tab{padding:10px 14px;border-radius:12px;border:1px solid #30343b;background:#17191e;color:#fff}.tab.active{background:#f3f4f6;color:#111}.panel{display:none;margin-top:14px}.panel.active{display:block}.card{border:1px solid #2c3037;background:#15171b;border-radius:16px;padding:12px}.library{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}.media-card{border:1px solid #2b3037;border-radius:15px;background:#15171b;overflow:hidden}.preview{aspect-ratio:16/10;background:#090a0c;display:flex;align-items:center;justify-content:center;overflow:hidden}.preview img,.preview video{width:100%;height:100%;object-fit:contain}.info{padding:10px}.name{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:12px;opacity:.65;margin-top:3px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.actions button,.bigbtn{border:0;border-radius:12px;min-height:44px;font-weight:800}.play{background:#f4f5f7;color:#111}.secondary{background:#252932;color:#fff}.danger{background:#782a2a;color:#fff}.clear{position:fixed;z-index:30;bottom:12px;left:50%;transform:translateX(-50%);width:min(860px,calc(100% - 24px));min-height:58px;border:0;border-radius:16px;background:#c93b3b;color:white;font-weight:900;font-size:18px}.uploadbox{border:2px dashed #343942;border-radius:18px;padding:18px;text-align:center}.uploadbox input{width:100%;margin:10px 0}.field{width:100%;padding:10px;border-radius:11px;border:1px solid #353a43;background:#111318;color:white;font-size:13px}select.field{font-size:12px;padding:9px 7px}.settings{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}.login{position:fixed;inset:0;z-index:99;background:#0e0f12;display:flex;align-items:center;justify-content:center;padding:18px}.loginbox{width:min(420px,100%);border:1px solid #30343b;background:#15171b;border-radius:20px;padding:20px}.loginbox h1{margin-top:0}.hidden{display:none!important}.toast{position:fixed;z-index:120;top:14px;left:50%;transform:translateX(-50%);background:#242831;border:1px solid #3a404b;padding:10px 14px;border-radius:12px;display:none;max-width:90%}
 .current-park-card,.timer-card{margin-top:14px;padding:14px;border:1px solid #2c3037;border-radius:16px;background:#15171b}.current-park-card select,.timer-card input{width:100%;min-height:46px;font-size:16px}.timer-display{font-variant-numeric:tabular-nums;font-size:34px;font-weight:900;text-align:center;padding:10px 0}.timer-state{text-align:center;font-size:12px;opacity:.7}.timer-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:9px}.timer-actions.two{grid-template-columns:1fr 1fr}.timer-actions button{min-height:48px}
 
 .ride-setup-toolbar{display:grid;grid-template-columns:1fr auto;gap:9px;margin-bottom:12px}.ride-setup-list{display:grid;gap:10px}.ride-setup-row{border:1px solid #2c3037;background:#15171b;border-radius:14px;padding:11px}.ride-original{font-size:12px;opacity:.65;margin-bottom:7px}.ride-setup-row input[type="text"]{width:100%;min-height:44px}.ride-setup-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.omit-line{display:flex;align-items:center;gap:9px;min-height:44px;margin-top:7px}.omit-line input{width:22px;height:22px}.timer-reported{text-align:center;font-size:13px;opacity:.82;margin-top:5px}.timer-card select{width:100%;min-height:46px;font-size:16px}
+
+/* Trivia controller accessibility */
+.trivia-card{padding:16px}
+.trivia-card h2{margin:0 0 6px}
+.trivia-status{margin:12px 0;padding:14px;border:2px solid #4a505c;border-radius:14px;text-align:center;font-size:20px;font-weight:900;letter-spacing:.04em}
+.trivia-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.trivia-grid .field{min-height:54px;font-size:17px}
+.trivia-question{min-height:92px;resize:vertical}
+.trivia-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.trivia-actions .bigbtn{min-height:58px;font-size:16px}
+.trivia-wide{grid-column:1/-1}
+.trivia-answer-label{display:flex;gap:8px;align-items:center}
+.trivia-answer-label strong{width:24px;font-size:18px}
+.trivia-answer-label input{flex:1}
+.trivia-sheet-tools{margin:12px 0 16px;padding:14px;border:1px solid #3a4050;border-radius:14px;background:#111318}
+.trivia-sheet-meta{margin-top:9px;font-size:13px;opacity:.82}
+.trivia-sheet-tools .bigbtn{width:100%;min-height:56px;margin-top:10px}
+@media(max-width:600px){.trivia-grid,.trivia-actions{grid-template-columns:1fr}.trivia-wide{grid-column:auto}}
+
 </style>
 </head>
 <body>
@@ -18,7 +37,7 @@
 <main>
 <div class="top">
   <div class="row"><div class="grow"><strong>Mobile Overlay</strong><div id="conn" class="status">Disconnected</div></div><button id="logout" class="tab">Lock</button></div>
-  <div class="tabs" style="overflow-x:auto"><button class="tab active" data-tab="library">Library</button><button class="tab" data-tab="upload">Upload</button><button class="tab" data-tab="text">Text</button><button class="tab" data-tab="rides">Parks</button><button class="tab" data-tab="rideSettings">Ride Setup</button><button class="tab" data-tab="streamerbot">Streamer.bot Test</button></div>
+  <div class="tabs" style="overflow-x:auto"><button class="tab active" data-tab="library">Library</button><button class="tab" data-tab="upload">Upload</button><button class="tab" data-tab="text">Text</button><button class="tab" data-tab="rides">Parks</button><button class="tab" data-tab="rideSettings">Ride Setup</button><button class="tab" data-tab="trivia">Trivia</button><button class="tab" data-tab="streamerbot">Streamer.bot Test</button></div>
 </div>
 
 <section id="library" class="panel active">
@@ -143,6 +162,105 @@
 </section>
 
 
+
+<section id="trivia" class="panel">
+  <div class="card trivia-card">
+    <h2>Trivia Control</h2>
+    <p class="status">Load an unused enabled question from Google Sheets, review it, then run the existing trivia controls.</p>
+    <div id="triviaStatus" class="trivia-status">IDLE</div>
+
+    <div class="trivia-sheet-tools">
+      <div class="trivia-grid">
+        <label class="card" style="padding:10px">Category
+          <select id="triviaSheetCategory" class="field" style="margin-top:7px">
+            <option value="">All categories</option>
+            <option value="Disney Parks">Disney Parks</option>
+          </select>
+        </label>
+        <label class="card" style="padding:10px">Difficulty
+          <select id="triviaSheetDifficulty" class="field" style="margin-top:7px">
+            <option value="">All difficulties</option>
+            <option value="Easy">Easy</option>
+            <option value="Medium">Medium</option>
+            <option value="Hard">Hard</option>
+          </select>
+        </label>
+      </div>
+      <button id="triviaLoadQuestion" class="bigbtn play">🎲 LOAD RANDOM QUESTION</button>
+      <div id="triviaSheetMeta" class="trivia-sheet-meta">Google Sheet ready • no question loaded</div>
+    </div>
+
+    <label class="status" for="triviaQuestion">Question</label>
+    <textarea id="triviaQuestion" class="field trivia-question" maxlength="500" placeholder="Type the trivia question"></textarea>
+
+    <div class="trivia-grid" style="margin-top:10px">
+      <label class="trivia-answer-label"><strong>A</strong><input id="triviaA" class="field" maxlength="180" placeholder="Answer A"></label>
+      <label class="trivia-answer-label"><strong>B</strong><input id="triviaB" class="field" maxlength="180" placeholder="Answer B"></label>
+      <label class="trivia-answer-label"><strong>C</strong><input id="triviaC" class="field" maxlength="180" placeholder="Answer C"></label>
+      <label class="trivia-answer-label"><strong>D</strong><input id="triviaD" class="field" maxlength="180" placeholder="Answer D"></label>
+    </div>
+
+    <div class="settings">
+      <label class="card" style="padding:10px">Correct answer
+        <select id="triviaCorrect" class="field" style="margin-top:7px">
+          <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+        </select>
+      </label>
+      <label class="card" style="padding:10px">Question #
+        <input id="triviaNumber" class="field" type="number" min="1" value="1" style="margin-top:7px">
+      </label>
+    </div>
+
+    <label class="status" for="triviaExplanation">Explanation / fun fact</label>
+    <textarea id="triviaExplanation" class="field" maxlength="500" placeholder="Shown after the answer is revealed" style="min-height:74px;resize:vertical"></textarea>
+
+    <div class="settings">
+      <label class="card" style="padding:10px">Trivia position
+        <select id="triviaPosition" class="field" style="margin-top:7px">
+          <option value="center" selected>Center</option><option value="top">Top center</option><option value="bottom">Bottom center</option>
+          <option value="left">Left center</option><option value="right">Right center</option>
+          <option value="top-left">Top left</option><option value="top-right">Top right</option>
+          <option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option>
+        </select>
+      </label>
+      <label class="card" style="padding:10px">Trivia size
+        <select id="triviaSize" class="field" style="margin-top:7px">
+          <option value="40">40%</option><option value="50">50%</option><option value="60">60%</option>
+          <option value="75">75%</option><option value="90" selected>90%</option><option value="100">100%</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="trivia-actions">
+      <button id="triviaTickerShow" class="bigbtn secondary">SHOW SCORE TICKER</button>
+      <button id="triviaTickerHide" class="bigbtn secondary">HIDE SCORE TICKER</button>
+      <label class="card" style="padding:10px">Ticker size
+        <select id="triviaTickerSize" class="field" style="margin-top:7px">
+          <option value="60">60%</option><option value="80">80%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option>
+        </select>
+      </label>
+      <label class="card" style="padding:10px">Ticker speed
+        <select id="triviaTickerSpeed" class="field" style="margin-top:7px">
+          <option value="60">Slow</option><option value="42" selected>Normal</option><option value="28">Fast</option><option value="18">Very fast</option>
+        </select>
+      </label>
+      <button id="triviaTiebreaker" class="bigbtn play trivia-wide">🎲 PICK TIEBREAKER WINNER</button>
+      <button id="triviaAuditDownload" class="bigbtn secondary">DOWNLOAD ANSWER LOG</button>
+      <button id="triviaAuditClear" class="bigbtn danger">CLEAR ANSWER LOG</button>
+    </div>
+
+    <div class="trivia-actions">
+      <button id="triviaShow" class="bigbtn play trivia-wide">SHOW QUESTION</button>
+      <button id="triviaClose" class="bigbtn secondary trivia-wide">CLOSE ANSWERS</button>
+      <button id="triviaReveal" class="bigbtn play trivia-wide">REVEAL ANSWER</button>
+      <button id="triviaLeaderboard" class="bigbtn secondary">SHOW LEADERBOARD</button>
+      <button id="triviaHide" class="bigbtn secondary">HIDE TRIVIA</button>
+      <button id="triviaReset" class="bigbtn danger trivia-wide">RESET GAME</button>
+    </div>
+    <div id="triviaAnswerCount" class="status" style="text-align:center;margin-top:12px">0 answers received</div>
+  </div>
+</section>
+
 <section id="streamerbot" class="panel">
   <div class="card">
     <h2>Streamer.bot Test</h2>
@@ -177,7 +295,7 @@
     try{ws?.close()}catch{};const proto=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}?role=control&key=${encodeURIComponent(key)}`);
     ws.onopen=()=>{retry=1000;conn.textContent=`Connected • ${room}`};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state')renderState(m.state||{})}catch{}};ws.onclose=e=>{if(!key)return;conn.textContent=e.code===1008?'Unauthorized':'Reconnecting…';setTimeout(connect,retry);retry=Math.min(retry*1.6,10000)};ws.onerror=()=>ws.close();
   }
-  function cmd(payload){if(ws?.readyState===1)ws.send(JSON.stringify(payload));else note('Controller is reconnecting')}
+  function cmd(payload){if(ws?.readyState===1){ws.send(JSON.stringify(payload));return true}else{note('Controller is reconnecting');return false}}
   let latestState={currentPark:'mk',rideSettings:{},lineTimer:{name:'',rideKey:'',park:'mk',reportedWait:null,reportedStatus:'',running:false,visible:false,startedAt:null,accumulatedMs:0}};
   const PARK_IDS={mk:6,epcot:5,hs:7,ak:8};
 
@@ -207,7 +325,7 @@
   function fmtElapsed(ms){const t=Math.floor(Math.max(0,Number(ms||0))/1000);return [Math.floor(t/3600),Math.floor((t%3600)/60),t%60].map(v=>String(v).padStart(2,'0')).join(':')}
   function timerElapsed(t){let ms=Math.max(0,Number(t?.accumulatedMs||0));if(t?.running&&t.startedAt)ms+=Math.max(0,Date.now()-Number(t.startedAt));return ms}
   function renderState(s){
-    if(s)latestState={...latestState,...s,lineTimer:{...latestState.lineTimer,...(s.lineTimer||{})}};
+    if(s)latestState={...latestState,...s,lineTimer:{...latestState.lineTimer,...(s.lineTimer||{})},trivia:{...(latestState.trivia||{}),...(s.trivia||{})}};
     const park=latestState.currentPark||'mk';
     if($('#waitDisplayMode') && latestState.rideWait){$('#waitDisplayMode').value=(latestState.rideWait.ticker||latestState.rideWait.displayMode==='ticker')?'ticker':'card'}
     if($('#currentPark')&&$('#currentPark').value!==park)$('#currentPark').value=park;
@@ -221,6 +339,16 @@
     if($('#timerState'))$('#timerState').textContent=`${t.running?'Running':'Stopped'} • ${t.visible?'On screen':'Hidden'}`;
     if($('#timerReported')){const rep=typeof t.reportedWait==='number'?`${t.reportedWait} min`:(t.reportedStatus||'—');$('#timerReported').textContent=`Reported wait at start: ${rep}`}
     if($('#rideSettingsPark')&&document.activeElement!==$('#rideSettingsPark'))$('#rideSettingsPark').value=park==='springs'?'mk':park;
+    const tr=latestState.trivia||{};
+    if($('#triviaStatus')){
+      const labels={idle:'IDLE',question:'QUESTION READY',open:'ANSWERS OPEN',closed:'ANSWERS CLOSED',revealed:`ANSWER REVEALED${tr.correct?' • '+tr.correct:''}`,leaderboard:'LEADERBOARD'};
+      $('#triviaStatus').textContent=tr.visible===false&&tr.phase!=='idle'?'HIDDEN':(labels[tr.phase]||String(tr.phase||'IDLE').toUpperCase());
+    }
+    if($('#triviaAnswerCount')){const n=Math.max(0,Number(tr.answerCount||0));$('#triviaAnswerCount').textContent=`${n} answer${n===1?'':'s'} received`;}
+    if($('#triviaPosition')&&document.activeElement!==$('#triviaPosition')&&tr.position)$('#triviaPosition').value=tr.position;
+    if($('#triviaSize')&&document.activeElement!==$('#triviaSize')&&tr.size)$('#triviaSize').value=String(tr.size);
+    if($('#triviaTickerSize')&&document.activeElement!==$('#triviaTickerSize')&&tr.tickerSize)$('#triviaTickerSize').value=String(tr.tickerSize);
+    if($('#triviaTickerSpeed')&&document.activeElement!==$('#triviaTickerSpeed')&&tr.tickerSpeed)$('#triviaTickerSpeed').value=String(tr.tickerSpeed);
   }
   setInterval(()=>renderState(),250);
   const fmt=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
@@ -456,6 +584,100 @@
   $('#timerReset').onclick=()=>cmd({action:'timerReset'});
   $('#timerShow').onclick=()=>cmd({action:'timerShow'});
   $('#timerHide').onclick=()=>cmd({action:'timerHide'});
+
+
+  // Trivia controller + Google Sheet question loader.
+  let loadedSheetQuestionId='';
+  function setTriviaStatus(label){const el=$('#triviaStatus');if(el)el.textContent=label}
+  function triviaDraft(){
+    return {
+      questionNumber:Number($('#triviaNumber')?.value||1),
+      question:$('#triviaQuestion')?.value.trim()||'',
+      answers:{A:$('#triviaA')?.value.trim()||'',B:$('#triviaB')?.value.trim()||'',C:$('#triviaC')?.value.trim()||'',D:$('#triviaD')?.value.trim()||''},
+      correct:$('#triviaCorrect')?.value||'A',
+      explanation:$('#triviaExplanation')?.value.trim()||'',
+      sheetQuestionId:loadedSheetQuestionId,
+      position:$('#triviaPosition')?.value||'center',
+      size:Number($('#triviaSize')?.value||90)
+    };
+  }
+  function triviaSend(action,extra={}){return cmd({action,...extra})}
+  async function loadTriviaSheetQuestion(){
+    const btn=$('#triviaLoadQuestion'),meta=$('#triviaSheetMeta');
+    const params=new URLSearchParams();
+    const category=$('#triviaSheetCategory')?.value||'';
+    const difficulty=$('#triviaSheetDifficulty')?.value||'';
+    if(category)params.set('category',category);
+    if(difficulty)params.set('difficulty',difficulty);
+    btn.disabled=true;btn.textContent='LOADING…';meta.textContent='Loading from Google Sheet…';
+    try{
+      const d=await api(`/api/${encodeURIComponent(room)}/trivia-question${params.toString()?'?'+params.toString():''}`);
+      const x=d.question||{};
+      loadedSheetQuestionId=String(x.id||'');
+      $('#triviaQuestion').value=x.question||'';
+      $('#triviaA').value=x.A||'';$('#triviaB').value=x.B||'';$('#triviaC').value=x.C||'';$('#triviaD').value=x.D||'';
+      $('#triviaCorrect').value=x.correct||'A';
+      $('#triviaExplanation').value=x.explanation||'';
+      meta.textContent=`Loaded #${x.id||'?'} • ${x.category||'Uncategorized'} • ${x.difficulty||'Unrated'} • ${d.remaining||0} eligible`;
+      note(`Loaded question #${x.id||''}`);
+    }catch(e){loadedSheetQuestionId='';meta.textContent=`Sheet error: ${e.message}`;note(e.message)}
+    finally{btn.disabled=false;btn.textContent='🎲 LOAD RANDOM QUESTION'}
+  }
+  async function markLoadedTriviaUsed(id){
+    if(!id)return;
+    try{
+      await api(`/api/${encodeURIComponent(room)}/trivia-mark-used`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});
+      if(loadedSheetQuestionId===id){$('#triviaSheetMeta').textContent+= ' • USED';loadedSheetQuestionId='';}
+    }catch(e){note(`Question shown, but Sheet Used update failed: ${e.message}`)}
+  }
+  $('#triviaLoadQuestion').onclick=loadTriviaSheetQuestion;
+  $('#triviaPosition').onchange=()=>triviaSend('triviaSetDisplay',{position:$('#triviaPosition').value,size:Number($('#triviaSize').value||90)});
+  $('#triviaSize').onchange=()=>triviaSend('triviaSetDisplay',{position:$('#triviaPosition').value,size:Number($('#triviaSize').value||90)});
+  $('#triviaTickerShow').onclick=()=>{triviaSend('triviaSetTicker',{visible:true});note('Score ticker shown')};
+  $('#triviaTickerHide').onclick=()=>{triviaSend('triviaSetTicker',{visible:false});note('Score ticker hidden')};
+  function updateTriviaTickerSettings(){triviaSend('triviaSetTickerSettings',{size:Number($('#triviaTickerSize')?.value||100),speed:Number($('#triviaTickerSpeed')?.value||42)})}
+  $('#triviaTickerSize').onchange=updateTriviaTickerSettings;
+  $('#triviaTickerSpeed').onchange=updateTriviaTickerSettings;
+  $('#triviaTiebreaker').onclick=()=>{triviaSend('triviaPickTiebreaker');note('Tiebreaker requested')};
+  async function downloadTriviaAudit(){
+    try{
+      const d=await api(`/api/${encodeURIComponent(room)}/command`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'triviaGetAudit'})});
+      const rows=Array.isArray(d.audit)?d.audit:[];
+      if(!rows.length){note('Answer log is empty');return}
+      const cols=['sessionId','questionId','questionNumber','sheetQuestionId','question','userId','name','choice','correctChoice','isCorrect','answeredAt'];
+      const csv=[cols.join(',')].concat(rows.map(r=>cols.map(k=>'"'+String(r?.[k]??'').replace(/"/g,'""')+'"').join(','))).join('\r\n');
+      const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trivia-answer-log-'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
+      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);note(`Downloaded ${rows.length} answer records`);
+    }catch(e){note('Answer log error: '+e.message)}
+  }
+  $('#triviaAuditDownload').onclick=downloadTriviaAudit;
+  $('#triviaAuditClear').onclick=async()=>{if(!confirm('Clear the saved trivia answer audit log? Download it first if you need a record.'))return;try{await api(`/api/${encodeURIComponent(room)}/command`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'triviaClearAudit'})});note('Answer audit log cleared')}catch(e){note(e.message)}};
+
+  $('#triviaShow').onclick=()=>{
+    const d=triviaDraft();
+    if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}
+    const current=latestState.trivia||{};
+    const sameCurrent=['question','open','closed','revealed'].includes(String(current.phase||'')) && String(current.question||'')===d.question;
+    if(sameCurrent){
+      triviaSend('triviaShowCurrent');
+      setTriviaStatus(String(current.phase||'open').toUpperCase());
+      note(current.visible===false?'Current trivia restored — answers preserved':'Current trivia already showing — answers preserved');
+      return;
+    }
+    const sheetId=loadedSheetQuestionId;
+    const sent=triviaSend('triviaSetQuestion',d);
+    if(!sent)return;
+    setTriviaStatus('ANSWERS OPEN');
+    note('Question shown — answers are open');
+    if(sheetId)markLoadedTriviaUsed(sheetId);
+    $('#triviaNumber').value=Math.max(1,Number(d.questionNumber||1)+1);
+  };
+  $('#triviaClose').onclick=()=>{triviaSend('triviaClose');setTriviaStatus('ANSWERS CLOSED');note('Answers closed')};
+  $('#triviaReveal').onclick=()=>{triviaSend('triviaReveal');setTriviaStatus(`ANSWER REVEALED • ${$('#triviaCorrect').value}`);note('Answer revealed')};
+  $('#triviaLeaderboard').onclick=()=>{triviaSend('triviaShowLeaderboard');setTriviaStatus('LEADERBOARD');note('Leaderboard requested')};
+  $('#triviaHide').onclick=()=>{triviaSend('triviaHide');setTriviaStatus('HIDDEN');note('Trivia hidden')};
+  $('#triviaReset').onclick=()=>{if(confirm('Reset the entire trivia game? This clears the current question and game data.')){triviaSend('triviaReset');$('#triviaQuestion').value='';['A','B','C','D'].forEach(x=>$('#trivia'+x).value='');$('#triviaExplanation').value='';$('#triviaCorrect').value='A';$('#triviaNumber').value='1';loadedSheetQuestionId='';if($('#triviaSheetMeta'))$('#triviaSheetMeta').textContent='Google Sheet ready • no question loaded';setTriviaStatus('IDLE');$('#triviaAnswerCount').textContent='0 answers received';note('Trivia game reset')}};
 
   $('#refresh').onclick=loadLibrary;
   $('#uploadBtn').onclick=async()=>{const f=$('#fileInput').files[0];if(!f){note('Choose a file first');return}if(f.size>75*1024*1024){note('File is over 75 MB');return}$('#uploadStatus').textContent=`Uploading ${f.name}…`;try{await api(`/api/media/upload?name=${encodeURIComponent(f.name)}`,{method:'POST',headers:{'content-type':f.type||'application/octet-stream','X-File-Name':f.name},body:f});$('#uploadStatus').textContent='Upload complete';$('#fileInput').value='';note('Media uploaded');loadLibrary();document.querySelector('[data-tab="library"]').click()}catch(e){$('#uploadStatus').textContent=e.message}};
