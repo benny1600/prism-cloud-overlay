@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, trivia: { visible: false, phase: "idle", questionId: "", questionNumber: 0, question: "", answers: { A: "", B: "", C: "", D: "" }, correct: "", explanation: "", answerCount: 0, leaderboard: [] }, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, trivia: { visible: false, phase: "idle", questionId: "", questionNumber: 0, question: "", answers: { A: "", B: "", C: "", D: "" }, correct: "", explanation: "", answerCount: 0, leaderboard: [], position: "center", size: 90, tickerVisible: false, tickerRows: [], tiebreaker: null }, updatedAt: null });
 const TRIVIA_SHEET_URL = "https://script.google.com/macros/s/AKfycbxm50Ypsv--vcVlbFLPb7qK0NO1JHht9ylxUpfawuRJeRf6UExGpffuIaCx3JyH_1TphA/exec";
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -87,29 +87,35 @@ function normalizeRideSettings(value) {
 function normalizeTrivia(value) {
   const src = value && typeof value === "object" ? value : {};
   const answers = src.answers && typeof src.answers === "object" ? src.answers : {};
-  const phase = ["idle","question","open","closed","revealed","leaderboard"].includes(String(src.phase || "")) ? String(src.phase) : "idle";
+  const phase = ["idle","question","open","closed","revealed","leaderboard","tiebreaker"].includes(String(src.phase || "")) ? String(src.phase) : "idle";
+  const positions=["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"];
+  const mapRow=row=>({
+    rank: Math.max(1, Math.floor(Number(row?.rank || 1))),
+    name: String(row?.name || "").slice(0, 100),
+    score: Math.max(0, Math.floor(Number(row?.score || 0))),
+    correct: Math.max(0, Math.floor(Number(row?.correct || 0))),
+    answered: Math.max(0, Math.floor(Number(row?.answered || 0)))
+  });
   return {
-    visible: Boolean(src.visible),
-    phase,
+    visible: Boolean(src.visible), phase,
     questionId: String(src.questionId || "").slice(0, 120),
     questionNumber: Math.max(0, Math.floor(Number(src.questionNumber || 0))),
     question: String(src.question || "").slice(0, 500),
-    answers: {
-      A: String(answers.A || "").slice(0, 240),
-      B: String(answers.B || "").slice(0, 240),
-      C: String(answers.C || "").slice(0, 240),
-      D: String(answers.D || "").slice(0, 240)
-    },
-    correct: phase === "revealed" ? String(src.correct || "").toUpperCase().slice(0, 1) : "",
-    explanation: phase === "revealed" ? String(src.explanation || "").slice(0, 500) : "",
-    answerCount: Math.max(0, Math.floor(Number(src.answerCount || 0))),
-    leaderboard: Array.isArray(src.leaderboard) ? src.leaderboard.slice(0, 20).map(row => ({
-      rank: Math.max(1, Math.floor(Number(row?.rank || 1))),
-      name: String(row?.name || "").slice(0, 100),
-      score: Math.max(0, Math.floor(Number(row?.score || 0))),
-      correct: Math.max(0, Math.floor(Number(row?.correct || 0))),
-      answered: Math.max(0, Math.floor(Number(row?.answered || 0)))
-    })) : []
+    answers: {A:String(answers.A||"").slice(0,240),B:String(answers.B||"").slice(0,240),C:String(answers.C||"").slice(0,240),D:String(answers.D||"").slice(0,240)},
+    correct: phase === "revealed" ? String(src.correct || "").toUpperCase().slice(0,1) : "",
+    explanation: phase === "revealed" ? String(src.explanation || "").slice(0,500) : "",
+    answerCount: Math.max(0,Math.floor(Number(src.answerCount||0))),
+    leaderboard: Array.isArray(src.leaderboard)?src.leaderboard.slice(0,20).map(mapRow):[],
+    position: positions.includes(String(src.position||""))?String(src.position):"center",
+    size: Math.max(40,Math.min(100,Number(src.size||90))),
+    tickerVisible: Boolean(src.tickerVisible),
+    tickerRows: Array.isArray(src.tickerRows)?src.tickerRows.slice(0,500).map(mapRow):[],
+    tiebreaker: src.tiebreaker&&typeof src.tiebreaker==="object"?{
+      winnerName:String(src.tiebreaker.winnerName||"").slice(0,100),
+      score:Math.max(0,Math.floor(Number(src.tiebreaker.score||0))),
+      tiedCount:Math.max(0,Math.floor(Number(src.tiebreaker.tiedCount||0))),
+      pickedAt:Number(src.tiebreaker.pickedAt||0)||null
+    }:null
   };
 }
 
@@ -251,40 +257,33 @@ export class OverlayRoom extends DurableObject {
 
   async finalizeTriviaQuestion(trivia) {
     const privateTrivia = await this.ctx.storage.get("triviaPrivate");
-    const questionId = String(trivia?.questionId || privateTrivia?.questionId || "").slice(0, 120);
-    if (!questionId || !privateTrivia?.correct || String(privateTrivia.questionId || "") !== questionId) {
-      return { scores: normalizeTriviaScores(await this.ctx.storage.get("triviaScores")), finalized: false };
+    const questionId = String(trivia?.questionId || privateTrivia?.questionId || "").slice(0,120);
+    if (!questionId || !privateTrivia?.correct || String(privateTrivia.questionId||"")!==questionId)
+      return { scores: normalizeTriviaScores(await this.ctx.storage.get("triviaScores")), finalized:false };
+    const finalizedStored=await this.ctx.storage.get("triviaFinalized");
+    const finalizedMap=finalizedStored&&typeof finalizedStored==="object"?finalizedStored:{};
+    const existingScores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+    if(finalizedMap[questionId])return{scores:existingScores,finalized:false};
+    const storedAnswers=await this.ctx.storage.get("triviaAnswers");
+    const answerMap=storedAnswers&&typeof storedAnswers==="object"?storedAnswers:{};
+    const correctChoice=String(privateTrivia.correct||"").toUpperCase().slice(0,1);
+    const scores={...existingScores};
+    const oldAudit=await this.ctx.storage.get("triviaAudit");
+    const audit=Array.isArray(oldAudit)?oldAudit.slice(-4500):[];
+    const sessionId=String((await this.ctx.storage.get("triviaSessionId"))||"");
+    for(const answer of Object.values(answerMap)){
+      if(!answer||String(answer.questionId||"")!==questionId)continue;
+      const userId=String(answer.userId||"").trim().slice(0,160);if(!userId)continue;
+      const prior=scores[userId]||{userId,name:"Viewer",score:0,correct:0,answered:0};
+      const isCorrect=String(answer.choice||"").toUpperCase()===correctChoice;
+      scores[userId]={userId,name:String(answer.name||prior.name||"Viewer").trim().slice(0,100)||"Viewer",score:prior.score+(isCorrect?1:0),correct:prior.correct+(isCorrect?1:0),answered:prior.answered+1};
+      audit.push({sessionId,questionId,questionNumber:Number(privateTrivia.questionNumber||trivia.questionNumber||0),sheetQuestionId:String(privateTrivia.sheetQuestionId||""),question:String(privateTrivia.question||trivia.question||"").slice(0,500),userId,name:String(answer.name||"Viewer").slice(0,100),choice:String(answer.choice||"").toUpperCase().slice(0,1),correctChoice,isCorrect,answeredAt:new Date(Number(answer.answeredAt||Date.now())).toISOString()});
     }
-
-    const finalizedStored = await this.ctx.storage.get("triviaFinalized");
-    const finalizedMap = finalizedStored && typeof finalizedStored === "object" ? finalizedStored : {};
-    const existingScores = normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
-    if (finalizedMap[questionId]) return { scores: existingScores, finalized: false };
-
-    const storedAnswers = await this.ctx.storage.get("triviaAnswers");
-    const answerMap = storedAnswers && typeof storedAnswers === "object" ? storedAnswers : {};
-    const correctChoice = String(privateTrivia.correct || "").toUpperCase().slice(0, 1);
-    const scores = { ...existingScores };
-
-    for (const answer of Object.values(answerMap)) {
-      if (!answer || String(answer.questionId || "") !== questionId) continue;
-      const userId = String(answer.userId || "").trim().slice(0, 160);
-      if (!userId) continue;
-      const prior = scores[userId] || { userId, name: "Viewer", score: 0, correct: 0, answered: 0 };
-      const isCorrect = String(answer.choice || "").toUpperCase() === correctChoice;
-      scores[userId] = {
-        userId,
-        name: String(answer.name || prior.name || "Viewer").trim().slice(0, 100) || "Viewer",
-        score: prior.score + (isCorrect ? 1 : 0),
-        correct: prior.correct + (isCorrect ? 1 : 0),
-        answered: prior.answered + 1
-      };
-    }
-
-    finalizedMap[questionId] = Date.now();
-    await this.ctx.storage.put("triviaScores", scores);
-    await this.ctx.storage.put("triviaFinalized", finalizedMap);
-    return { scores, finalized: true };
+    finalizedMap[questionId]=Date.now();
+    await this.ctx.storage.put("triviaScores",scores);
+    await this.ctx.storage.put("triviaFinalized",finalizedMap);
+    await this.ctx.storage.put("triviaAudit",audit.slice(-5000));
+    return{scores,finalized:true};
   }
 
   async handleCommand(command) {
@@ -478,38 +477,20 @@ export class OverlayRoom extends DurableObject {
       case "timerShow": next.lineTimer = { ...normalizeTimer(next.lineTimer), visible: true }; break;
       case "timerHide": next.lineTimer = { ...normalizeTimer(next.lineTimer), visible: false }; break;
       case "triviaSetQuestion": {
-        const question = String(command.question || "").trim().slice(0, 500);
-        const answers = command.answers && typeof command.answers === "object" ? command.answers : {};
-        const correct = String(command.correct || "").trim().toUpperCase();
-        if (!question) return json({ ok: false, error: "Missing trivia question" }, { status: 400 });
-        if (!["A","B","C","D"].includes(correct)) return json({ ok: false, error: "Correct answer must be A, B, C, or D" }, { status: 400 });
-        for (const key of ["A","B","C","D"]) {
-          if (!String(answers[key] || "").trim()) return json({ ok: false, error: `Missing answer ${key}` }, { status: 400 });
-        }
-        const questionId = String(command.questionId || crypto.randomUUID()).slice(0, 120);
-        await this.ctx.storage.put("triviaPrivate", {
-          questionId,
-          correct,
-          explanation: String(command.explanation || "").slice(0, 500)
-        });
-        await this.ctx.storage.delete("triviaAnswers");
-        next.trivia = {
-          visible: true,
-          phase: "question",
-          questionId,
-          questionNumber: Math.max(0, Math.floor(Number(command.questionNumber || 0))),
-          question,
-          answers: {
-            A: String(answers.A).slice(0, 240),
-            B: String(answers.B).slice(0, 240),
-            C: String(answers.C).slice(0, 240),
-            D: String(answers.D).slice(0, 240)
-          },
-          correct: "",
-          explanation: "",
-          answerCount: 0,
-          leaderboard: normalizeTrivia(current.trivia).leaderboard
-        };
+        const question=String(command.question||"").trim().slice(0,500);
+        const answers=command.answers&&typeof command.answers==="object"?command.answers:{};
+        const correct=String(command.correct||"").trim().toUpperCase();
+        if(!question)return json({ok:false,error:"Missing trivia question"},{status:400});
+        if(!["A","B","C","D"].includes(correct))return json({ok:false,error:"Correct answer must be A, B, C, or D"},{status:400});
+        for(const key of ["A","B","C","D"])if(!String(answers[key]||"").trim())return json({ok:false,error:`Missing answer ${key}`},{status:400});
+        let sessionId=await this.ctx.storage.get("triviaSessionId");
+        if(!sessionId){sessionId=crypto.randomUUID();await this.ctx.storage.put("triviaSessionId",sessionId)}
+        const questionId=String(command.questionId||crypto.randomUUID()).slice(0,120);
+        await this.ctx.storage.put("triviaPrivate",{questionId,correct,explanation:String(command.explanation||"").slice(0,500),questionNumber:Math.max(0,Math.floor(Number(command.questionNumber||0))),sheetQuestionId:String(command.sheetQuestionId||"").slice(0,120),question,answers:{A:String(answers.A).slice(0,240),B:String(answers.B).slice(0,240),C:String(answers.C).slice(0,240),D:String(answers.D).slice(0,240)}});
+        await this.ctx.storage.delete("triviaAnswers");await this.ctx.storage.delete("triviaTiebreaker");
+        const prior=normalizeTrivia(current.trivia);
+        const scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+        next.trivia={visible:true,phase:"open",questionId,questionNumber:Math.max(0,Math.floor(Number(command.questionNumber||0))),question,answers:{A:String(answers.A).slice(0,240),B:String(answers.B).slice(0,240),C:String(answers.C).slice(0,240),D:String(answers.D).slice(0,240)},correct:"",explanation:"",answerCount:0,leaderboard:prior.leaderboard,position:["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position||""))?String(command.position):prior.position,size:Math.max(40,Math.min(100,Number(command.size||prior.size||90))),tickerVisible:prior.tickerVisible,tickerRows:buildTriviaLeaderboard(scores,500),tiebreaker:null};
         break;
       }
       case "triviaOpen":
@@ -519,7 +500,7 @@ export class OverlayRoom extends DurableObject {
       case "triviaClose": {
         const trivia = normalizeTrivia(current.trivia);
         const result = await this.finalizeTriviaQuestion(trivia);
-        next.trivia = { ...trivia, visible: true, phase: "closed", correct: "", explanation: "", leaderboard: buildTriviaLeaderboard(result.scores) };
+        next.trivia = { ...trivia, visible: true, phase: "closed", correct: "", explanation: "", leaderboard: buildTriviaLeaderboard(result.scores), tickerRows: buildTriviaLeaderboard(result.scores,500) };
         break;
       }
       case "triviaReveal": {
@@ -533,15 +514,52 @@ export class OverlayRoom extends DurableObject {
           phase: "revealed",
           correct: String(privateTrivia.correct || "").toUpperCase().slice(0, 1),
           explanation: String(privateTrivia.explanation || "").slice(0, 500),
-          leaderboard: buildTriviaLeaderboard(result.scores)
+          leaderboard: buildTriviaLeaderboard(result.scores),
+          tickerRows: buildTriviaLeaderboard(result.scores,500)
         };
         break;
       }
       case "triviaShowLeaderboard": {
-        const scores = normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
-        next.trivia = { ...normalizeTrivia(current.trivia), visible: true, phase: "leaderboard", correct: "", explanation: "", leaderboard: buildTriviaLeaderboard(scores) };
+        const scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+        next.trivia={...normalizeTrivia(current.trivia),visible:true,phase:"leaderboard",correct:"",explanation:"",leaderboard:buildTriviaLeaderboard(scores),tickerRows:buildTriviaLeaderboard(scores,500)};
         break;
       }
+      case "triviaShowCurrent":
+        next.trivia={...normalizeTrivia(current.trivia),visible:true};
+        break;
+      case "triviaSetDisplay": {
+        const tr=normalizeTrivia(current.trivia),positions=["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"];
+        next.trivia={...tr,position:positions.includes(String(command.position||""))?String(command.position):tr.position,size:Math.max(40,Math.min(100,Number(command.size||tr.size||90)))};
+        break;
+      }
+      case "triviaSetTicker": {
+        const tr=normalizeTrivia(current.trivia),scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+        next.trivia={...tr,tickerVisible:Boolean(command.visible),tickerRows:buildTriviaLeaderboard(scores,500)};
+        break;
+      }
+      case "triviaPickTiebreaker": {
+        const scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
+        const players=Object.values(scores);if(!players.length)return json({ok:false,error:"No scored players yet"},{status:409});
+        const top=Math.max(...players.map(x=>x.score));const tied=players.filter(x=>x.score===top);
+        if(tied.length<2)return json({ok:false,error:"There is no first-place tie"},{status:409});
+        let existing=await this.ctx.storage.get("triviaTiebreaker");
+        if(!existing||Number(existing.score)!==top||Number(existing.tiedCount)!==tied.length){
+          const max=0x100000000-(0x100000000%tied.length);let n;
+          do{n=crypto.getRandomValues(new Uint32Array(1))[0]}while(n>=max);
+          const winner=tied[n%tied.length];
+          existing={winnerName:winner.name,winnerUserId:winner.userId,score:top,tiedCount:tied.length,pickedAt:Date.now()};
+          await this.ctx.storage.put("triviaTiebreaker",existing);
+        }
+        next.trivia={...normalizeTrivia(current.trivia),visible:true,phase:"tiebreaker",tiebreaker:existing,tickerRows:buildTriviaLeaderboard(scores,500)};
+        break;
+      }
+      case "triviaGetAudit": {
+        const audit=await this.ctx.storage.get("triviaAudit");
+        return json({ok:true,audit:Array.isArray(audit)?audit:[]});
+      }
+      case "triviaClearAudit":
+        await this.ctx.storage.delete("triviaAudit");
+        return json({ok:true});
       case "triviaHide":
         next.trivia = { ...normalizeTrivia(current.trivia), visible: false };
         break;
@@ -572,6 +590,8 @@ export class OverlayRoom extends DurableObject {
         await this.ctx.storage.delete("triviaAnswers");
         await this.ctx.storage.delete("triviaScores");
         await this.ctx.storage.delete("triviaFinalized");
+        await this.ctx.storage.delete("triviaTiebreaker");
+        await this.ctx.storage.put("triviaSessionId", crypto.randomUUID());
         next.trivia = { ...DEFAULT_STATE.trivia };
         break;
       case "clear": next = { ...DEFAULT_STATE, currentPark: normalizePark(next.currentPark), rideSettings: normalizeRideSettings(next.rideSettings), trivia: normalizeTrivia(next.trivia) }; break;
