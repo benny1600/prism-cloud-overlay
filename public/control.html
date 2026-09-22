@@ -234,16 +234,6 @@
     <div class="trivia-actions">
       <button id="triviaTickerShow" class="bigbtn secondary">SHOW SCORE TICKER</button>
       <button id="triviaTickerHide" class="bigbtn secondary">HIDE SCORE TICKER</button>
-      <label class="card" style="padding:10px">Ticker size
-        <select id="triviaTickerSize" class="field" style="margin-top:7px">
-          <option value="60">60%</option><option value="80">80%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option>
-        </select>
-      </label>
-      <label class="card" style="padding:10px">Ticker speed
-        <select id="triviaTickerSpeed" class="field" style="margin-top:7px">
-          <option value="60">Slow</option><option value="42" selected>Normal</option><option value="28">Fast</option><option value="18">Very fast</option>
-        </select>
-      </label>
       <button id="triviaTiebreaker" class="bigbtn play trivia-wide">🎲 PICK TIEBREAKER WINNER</button>
       <button id="triviaAuditDownload" class="bigbtn secondary">DOWNLOAD ANSWER LOG</button>
       <button id="triviaAuditClear" class="bigbtn danger">CLEAR ANSWER LOG</button>
@@ -251,7 +241,8 @@
 
     <div class="trivia-actions">
       <button id="triviaShow" class="bigbtn play trivia-wide">SHOW QUESTION</button>
-      <button id="triviaClose" class="bigbtn secondary trivia-wide">CLOSE ANSWERS</button>
+      <button id="triviaOpen" class="bigbtn play">OPEN ANSWERS</button>
+      <button id="triviaClose" class="bigbtn secondary">CLOSE ANSWERS</button>
       <button id="triviaReveal" class="bigbtn play trivia-wide">REVEAL ANSWER</button>
       <button id="triviaLeaderboard" class="bigbtn secondary">SHOW LEADERBOARD</button>
       <button id="triviaHide" class="bigbtn secondary">HIDE TRIVIA</button>
@@ -347,8 +338,6 @@
     if($('#triviaAnswerCount')){const n=Math.max(0,Number(tr.answerCount||0));$('#triviaAnswerCount').textContent=`${n} answer${n===1?'':'s'} received`;}
     if($('#triviaPosition')&&document.activeElement!==$('#triviaPosition')&&tr.position)$('#triviaPosition').value=tr.position;
     if($('#triviaSize')&&document.activeElement!==$('#triviaSize')&&tr.size)$('#triviaSize').value=String(tr.size);
-    if($('#triviaTickerSize')&&document.activeElement!==$('#triviaTickerSize')&&tr.tickerSize)$('#triviaTickerSize').value=String(tr.tickerSize);
-    if($('#triviaTickerSpeed')&&document.activeElement!==$('#triviaTickerSpeed')&&tr.tickerSpeed)$('#triviaTickerSpeed').value=String(tr.tickerSpeed);
   }
   setInterval(()=>renderState(),250);
   const fmt=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
@@ -635,9 +624,6 @@
   $('#triviaSize').onchange=()=>triviaSend('triviaSetDisplay',{position:$('#triviaPosition').value,size:Number($('#triviaSize').value||90)});
   $('#triviaTickerShow').onclick=()=>{triviaSend('triviaSetTicker',{visible:true});note('Score ticker shown')};
   $('#triviaTickerHide').onclick=()=>{triviaSend('triviaSetTicker',{visible:false});note('Score ticker hidden')};
-  function updateTriviaTickerSettings(){triviaSend('triviaSetTickerSettings',{size:Number($('#triviaTickerSize')?.value||100),speed:Number($('#triviaTickerSpeed')?.value||42)})}
-  $('#triviaTickerSize').onchange=updateTriviaTickerSettings;
-  $('#triviaTickerSpeed').onchange=updateTriviaTickerSettings;
   $('#triviaTiebreaker').onclick=()=>{triviaSend('triviaPickTiebreaker');note('Tiebreaker requested')};
   async function downloadTriviaAudit(){
     try{
@@ -658,11 +644,11 @@
     const d=triviaDraft();
     if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}
     const current=latestState.trivia||{};
-    const sameCurrent=current.phase!=='idle' && String(current.question||'')===d.question;
-    if(sameCurrent){
+    const sameQuestion=current.phase!=='idle' && current.phase!=='leaderboard' && current.phase!=='tiebreaker' && String(current.question||'')===d.question;
+    if(sameQuestion){
       triviaSend('triviaShowCurrent');
       setTriviaStatus(String(current.phase||'open').toUpperCase());
-      note(current.visible===false?'Current trivia restored — answers preserved':'Current trivia already showing — answers preserved');
+      note('Current trivia restored — answers preserved');
       return;
     }
     const sheetId=loadedSheetQuestionId;
@@ -673,6 +659,7 @@
     if(sheetId)markLoadedTriviaUsed(sheetId);
     $('#triviaNumber').value=Math.max(1,Number(d.questionNumber||1)+1);
   };
+  $('#triviaOpen').onclick=()=>{triviaSend('triviaOpen');setTriviaStatus('ANSWERS OPEN');note('Answers opened')};
   $('#triviaClose').onclick=()=>{triviaSend('triviaClose');setTriviaStatus('ANSWERS CLOSED');note('Answers closed')};
   $('#triviaReveal').onclick=()=>{triviaSend('triviaReveal');setTriviaStatus(`ANSWER REVEALED • ${$('#triviaCorrect').value}`);note('Answer revealed')};
   $('#triviaLeaderboard').onclick=()=>{triviaSend('triviaShowLeaderboard');setTriviaStatus('LEADERBOARD');note('Leaderboard requested')};
