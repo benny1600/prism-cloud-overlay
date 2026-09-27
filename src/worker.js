@@ -154,8 +154,14 @@ function buildTriviaLeaderboard(scores, limit = 20) {
     const rank = previousScore === row.score ? previousRank : index + 1;
     previousScore = row.score;
     previousRank = rank;
-    return { rank, name: row.name, score: row.score, correct: row.correct, answered: row.answered };
-  });
+    return {
+  rank,
+  name: row.name,
+  avatarUrl: row.avatarUrl,
+  score: row.score,
+  correct: row.correct,
+  answered: row.answered
+};
 }
 
 function getTriviaViewerScore(scores, userId) {
