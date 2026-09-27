@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRISM Trivia Scores - OBS</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:Arial,Helvetica,sans-serif}
+#scores{display:flex;flex-direction:column;gap:10px;padding:16px;box-sizing:border-box;width:max-content;max-width:100%}
+.player{display:grid;grid-template-columns:34px 56px minmax(180px,420px) auto;align-items:center;gap:10px;min-height:58px;padding:7px 14px 7px 8px;border-radius:34px;background:rgba(15,15,18,.86);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.32)}
+.rank{font-size:20px;font-weight:800;text-align:center}.avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;display:block;border:2px solid rgba(255,255,255,.92);box-sizing:border-box;background:rgba(255,255,255,.12)}
+.avatar-fallback{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;border:2px solid rgba(255,255,255,.92);box-sizing:border-box;background:rgba(255,255,255,.14);font-size:22px;font-weight:800}
+.name{font-size:24px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.score{font-size:25px;font-weight:900;white-space:nowrap}
+</style></head><body><div id="scores"></div>
+<script>
+(()=>{const p=new URLSearchParams(location.search),room=p.get('room')||'mobiletest',limit=Math.max(1,Math.min(100,Number(p.get('limit')||20))),el=document.getElementById('scores');let retry=1000,ws;
+const initial=n=>{n=String(n||'').trim();return n?n.charAt(0).toUpperCase():'?'};
+function render(state){const rows=Array.isArray(state?.trivia?.tickerRows)?state.trivia.tickerRows.slice(0,limit):[];el.replaceChildren();
+for(const row of rows){const card=document.createElement('div');card.className='player';const rank=document.createElement('div');rank.className='rank';rank.textContent='#'+(row.rank??'');card.appendChild(rank);
+if(row.avatarUrl){const img=document.createElement('img');img.className='avatar';img.src=row.avatarUrl;img.alt='';img.referrerPolicy='no-referrer';img.onerror=()=>{const f=document.createElement('div');f.className='avatar-fallback';f.textContent=initial(row.name);img.replaceWith(f)};card.appendChild(img)}
+else{const f=document.createElement('div');f.className='avatar-fallback';f.textContent=initial(row.name);card.appendChild(f)}
+const name=document.createElement('div');name.className='name';name.textContent=row.name||'Viewer';card.appendChild(name);const score=document.createElement('div');score.className='score';const n=Number(row.score||0);score.textContent=n+' '+(n===1?'pt':'pts');card.appendChild(score);el.appendChild(card)}}
+function connect(){try{ws?.close()}catch{}const proto=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}?role=overlay`);ws.onopen=()=>retry=1000;ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state')render(m.state||{})}catch{}};ws.onclose=()=>{setTimeout(connect,retry);retry=Math.min(retry*1.6,10000)};ws.onerror=()=>{try{ws.close()}catch{}}}connect()})();
+</script></body></html>
