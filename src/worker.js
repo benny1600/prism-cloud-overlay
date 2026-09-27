@@ -274,14 +274,46 @@ export class OverlayRoom extends DurableObject {
     const oldAudit=await this.ctx.storage.get("triviaAudit");
     const audit=Array.isArray(oldAudit)?oldAudit.slice(-4500):[];
     const sessionId=String((await this.ctx.storage.get("triviaSessionId"))||"");
-    for(const answer of Object.values(answerMap)){
-      if(!answer||String(answer.questionId||"")!==questionId)continue;
-      const userId=String(answer.userId||"").trim().slice(0,160);if(!userId)continue;
-      const prior=scores[userId]||{userId,name:"Viewer",score:0,correct:0,answered:0};
-      const isCorrect=String(answer.choice||"").toUpperCase()===correctChoice;
-      scores[userId]={userId,name:String(answer.name||prior.name||"Viewer").trim().slice(0,100)||"Viewer",score:prior.score+(isCorrect?1:0),correct:prior.correct+(isCorrect?1:0),answered:prior.answered+1};
-      audit.push({sessionId,questionId,questionNumber:Number(privateTrivia.questionNumber||trivia.questionNumber||0),sheetQuestionId:String(privateTrivia.sheetQuestionId||""),question:String(privateTrivia.question||trivia.question||"").slice(0,500),userId,name:String(answer.name||"Viewer").slice(0,100),choice:String(answer.choice||"").toUpperCase().slice(0,1),correctChoice,isCorrect,answeredAt:new Date(Number(answer.answeredAt||Date.now())).toISOString()});
-    }
+   for(const answer of Object.values(answerMap)){
+  if(!answer||String(answer.questionId||"")!==questionId)continue;
+
+  const userId=String(answer.userId||"").trim().slice(0,160);
+  if(!userId)continue;
+
+  const prior=scores[userId]||{
+    userId,
+    name:"Viewer",
+    avatarUrl:"",
+    score:0,
+    correct:0,
+    answered:0
+  };
+
+  const isCorrect=String(answer.choice||"").toUpperCase()===correctChoice;
+
+  scores[userId]={
+    userId,
+    name:String(answer.name||prior.name||"Viewer").trim().slice(0,100)||"Viewer",
+    avatarUrl:String(answer.avatarUrl||prior.avatarUrl||"").trim().slice(0,1000),
+    score:prior.score+(isCorrect?1:0),
+    correct:prior.correct+(isCorrect?1:0),
+    answered:prior.answered+1
+  };
+
+  audit.push({
+    sessionId,
+    questionId,
+    questionNumber:Number(privateTrivia.questionNumber||trivia.questionNumber||0),
+    sheetQuestionId:String(privateTrivia.sheetQuestionId||""),
+    question:String(privateTrivia.question||trivia.question||"").slice(0,500),
+    userId,
+    name:String(answer.name||"Viewer").slice(0,100),
+    choice:String(answer.choice||"").toUpperCase().slice(0,1),
+    correctChoice,
+    isCorrect,
+    answeredAt:new Date(Number(answer.answeredAt||Date.now())).toISOString()
+  });
+}
     finalizedMap[questionId]=Date.now();
     await this.ctx.storage.put("triviaScores",scores);
     await this.ctx.storage.put("triviaFinalized",finalizedMap);
