@@ -134,6 +134,7 @@ function normalizeTriviaScores(value) {
     out[userId] = {
       userId,
       name: String(raw.name || "Viewer").trim().slice(0, 100) || "Viewer",
+      avatarUrl: String(raw.avatarUrl || "").trim().slice(0, 1000),
       score: Math.max(0, Math.floor(Number(raw.score || 0))),
       correct: Math.max(0, Math.floor(Number(raw.correct || 0))),
       answered: Math.max(0, Math.floor(Number(raw.answered || 0)))
