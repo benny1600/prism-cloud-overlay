@@ -573,22 +573,36 @@ export class OverlayRoom extends DurableObject {
       case "triviaHide":
         next.trivia = { ...normalizeTrivia(current.trivia), visible: false };
         break;
-      case "triviaAnswer": {
-        const trivia = normalizeTrivia(current.trivia);
-        if (trivia.phase !== "open") return json({ ok: false, error: "Trivia answers are closed" }, { status: 409 });
-        const userId = String(command.userId || "").trim().slice(0, 160);
-        const name = String(command.name || command.displayName || "").trim().slice(0, 100);
-        const choice = String(command.choice || command.answer || "").trim().toUpperCase();
-        if (!userId) return json({ ok: false, error: "Missing viewer userId" }, { status: 400 });
-        if (!["A","B","C","D"].includes(choice)) return json({ ok: false, error: "Answer must be A, B, C, or D" }, { status: 400 });
-        const stored = await this.ctx.storage.get("triviaAnswers");
-        const answerMap = stored && typeof stored === "object" ? stored : {};
-        if (answerMap[userId]) return json({ ok: false, error: "Viewer already answered", duplicate: true }, { status: 409 });
-        answerMap[userId] = { userId, name, choice, answeredAt: Date.now(), questionId: trivia.questionId };
-        await this.ctx.storage.put("triviaAnswers", answerMap);
-        next.trivia = { ...trivia, answerCount: Object.keys(answerMap).length };
-        break;
-      }
+    case "triviaAnswer": {
+  const trivia = normalizeTrivia(current.trivia);
+  if (trivia.phase !== "open") return json({ ok: false, error: "Trivia answers are closed" }, { status: 409 });
+
+  const userId = String(command.userId || "").trim().slice(0, 160);
+  const name = String(command.name || command.displayName || "").trim().slice(0, 100);
+  const choice = String(command.choice || command.answer || "").trim().toUpperCase();
+  const avatarUrl = String(command.avatarUrl || "").trim().slice(0, 1000);
+
+  if (!userId) return json({ ok: false, error: "Missing viewer userId" }, { status: 400 });
+  if (!["A","B","C","D"].includes(choice)) return json({ ok: false, error: "Answer must be A, B, C, or D" }, { status: 400 });
+
+  const stored = await this.ctx.storage.get("triviaAnswers");
+  const answerMap = stored && typeof stored === "object" ? stored : {};
+
+  if (answerMap[userId]) return json({ ok: false, error: "Viewer already answered", duplicate: true }, { status: 409 });
+
+  answerMap[userId] = {
+    userId,
+    name,
+    choice,
+    avatarUrl,
+    answeredAt: Date.now(),
+    questionId: trivia.questionId
+  };
+
+  await this.ctx.storage.put("triviaAnswers", answerMap);
+  next.trivia = { ...trivia, answerCount: Object.keys(answerMap).length };
+  break;
+}
       case "triviaGetScore": {
         const userId = String(command.userId || "").trim().slice(0, 160);
         if (!userId) return json({ ok: false, error: "Missing viewer userId" }, { status: 400 });
