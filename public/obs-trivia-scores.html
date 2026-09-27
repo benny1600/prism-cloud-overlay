@@ -1,21 +1,84 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PRISM Trivia Scores - OBS</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRISM Trivia Scores - Horizontal OBS Ticker</title>
 <style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:Arial,Helvetica,sans-serif}
-#scores{display:flex;flex-direction:column;gap:10px;padding:16px;box-sizing:border-box;width:max-content;max-width:100%}
-.player{display:grid;grid-template-columns:34px 56px minmax(180px,420px) auto;align-items:center;gap:10px;min-height:58px;padding:7px 14px 7px 8px;border-radius:34px;background:rgba(15,15,18,.86);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.32)}
-.rank{font-size:20px;font-weight:800;text-align:center}.avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;display:block;border:2px solid rgba(255,255,255,.92);box-sizing:border-box;background:rgba(255,255,255,.12)}
-.avatar-fallback{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;border:2px solid rgba(255,255,255,.92);box-sizing:border-box;background:rgba(255,255,255,.14);font-size:22px;font-weight:800}
-.name{font-size:24px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.score{font-size:25px;font-weight:900;white-space:nowrap}
-</style></head><body><div id="scores"></div>
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:Arial,Helvetica,sans-serif}
+  .viewport{position:absolute;left:0;right:0;bottom:0;height:82px;overflow:hidden}
+  .track{position:absolute;display:flex;align-items:center;gap:18px;height:82px;white-space:nowrap;will-change:transform}
+  .player{display:flex;align-items:center;gap:10px;height:62px;padding:0 18px 0 8px;border-radius:34px;
+    background:rgba(15,15,18,.88);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.35);flex:none}
+  .rank{font-size:20px;font-weight:900}
+  .avatar,.avatar-fallback{width:50px;height:50px;border-radius:50%;border:2px solid rgba(255,255,255,.92);box-sizing:border-box;flex:none}
+  .avatar{object-fit:cover;display:block;background:rgba(255,255,255,.12)}
+  .avatar-fallback{display:grid;place-items:center;background:rgba(255,255,255,.14);font-size:21px;font-weight:900}
+  .name{font-size:23px;font-weight:800;max-width:330px;overflow:hidden;text-overflow:ellipsis}
+  .score{font-size:24px;font-weight:900;margin-left:4px}
+</style>
+</head>
+<body>
+<div class="viewport"><div id="track" class="track"></div></div>
 <script>
-(()=>{const p=new URLSearchParams(location.search),room=p.get('room')||'mobiletest',limit=Math.max(1,Math.min(100,Number(p.get('limit')||20))),el=document.getElementById('scores');let retry=1000,ws;
-const initial=n=>{n=String(n||'').trim();return n?n.charAt(0).toUpperCase():'?'};
-function render(state){const rows=Array.isArray(state?.trivia?.tickerRows)?state.trivia.tickerRows.slice(0,limit):[];el.replaceChildren();
-for(const row of rows){const card=document.createElement('div');card.className='player';const rank=document.createElement('div');rank.className='rank';rank.textContent='#'+(row.rank??'');card.appendChild(rank);
-if(row.avatarUrl){const img=document.createElement('img');img.className='avatar';img.src=row.avatarUrl;img.alt='';img.referrerPolicy='no-referrer';img.onerror=()=>{const f=document.createElement('div');f.className='avatar-fallback';f.textContent=initial(row.name);img.replaceWith(f)};card.appendChild(img)}
-else{const f=document.createElement('div');f.className='avatar-fallback';f.textContent=initial(row.name);card.appendChild(f)}
-const name=document.createElement('div');name.className='name';name.textContent=row.name||'Viewer';card.appendChild(name);const score=document.createElement('div');score.className='score';const n=Number(row.score||0);score.textContent=n+' '+(n===1?'pt':'pts');card.appendChild(score);el.appendChild(card)}}
-function connect(){try{ws?.close()}catch{}const proto=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}?role=overlay`);ws.onopen=()=>retry=1000;ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state')render(m.state||{})}catch{}};ws.onclose=()=>{setTimeout(connect,retry);retry=Math.min(retry*1.6,10000)};ws.onerror=()=>{try{ws.close()}catch{}}}connect()})();
-</script></body></html>
+(() => {
+  const p=new URLSearchParams(location.search);
+  const room=p.get('room')||'mobiletest';
+  const speed=Math.max(20,Math.min(300,Number(p.get('speed')||80))); // pixels/sec
+  const limit=Math.max(1,Math.min(100,Number(p.get('limit')||100)));
+  const track=document.getElementById('track');
+  let ws,retry=1000,rows=[],x=window.innerWidth,last=performance.now(),contentWidth=0;
+
+  const initial=n=>{n=String(n||'').trim();return n?n.charAt(0).toUpperCase():'?'};
+
+  function playerNode(row){
+    const card=document.createElement('div'); card.className='player';
+    const rank=document.createElement('span'); rank.className='rank'; rank.textContent='#'+(row.rank??''); card.appendChild(rank);
+    if(row.avatarUrl){
+      const img=document.createElement('img'); img.className='avatar'; img.src=row.avatarUrl; img.alt=''; img.referrerPolicy='no-referrer';
+      img.onerror=()=>{const f=document.createElement('span');f.className='avatar-fallback';f.textContent=initial(row.name);img.replaceWith(f)};
+      card.appendChild(img);
+    } else {
+      const f=document.createElement('span'); f.className='avatar-fallback'; f.textContent=initial(row.name); card.appendChild(f);
+    }
+    const name=document.createElement('span'); name.className='name'; name.textContent=row.name||'Viewer'; card.appendChild(name);
+    const score=document.createElement('span'); score.className='score'; const n=Number(row.score||0); score.textContent=n+' '+(n===1?'pt':'pts'); card.appendChild(score);
+    return card;
+  }
+
+  function render(state){
+    const next=Array.isArray(state?.trivia?.tickerRows)?state.trivia.tickerRows.slice(0,limit):[];
+    const signature=JSON.stringify(next);
+    if(signature===JSON.stringify(rows)) return;
+    rows=next;
+    track.replaceChildren();
+    for(const row of rows) track.appendChild(playerNode(row));
+    contentWidth=track.scrollWidth;
+    x=window.innerWidth;
+  }
+
+  function animate(now){
+    const dt=Math.min(.1,(now-last)/1000); last=now;
+    if(rows.length){
+      x-=speed*dt;
+      if(x < -contentWidth-30) x=window.innerWidth;
+      track.style.transform=`translate3d(${x}px,0,0)`;
+    }
+    requestAnimationFrame(animate);
+  }
+
+  function connect(){
+    try{ws?.close()}catch{}
+    const proto=location.protocol==='https:'?'wss:':'ws:';
+    ws=new WebSocket(`${proto}//${location.host}/ws/${encodeURIComponent(room)}?role=overlay`);
+    ws.onopen=()=>retry=1000;
+    ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='state')render(m.state||{})}catch{}};
+    ws.onclose=()=>{setTimeout(connect,retry);retry=Math.min(retry*1.6,10000)};
+    ws.onerror=()=>{try{ws.close()}catch{}};
+  }
+  window.addEventListener('resize',()=>{if(rows.length && x>window.innerWidth)x=window.innerWidth});
+  connect(); requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>
