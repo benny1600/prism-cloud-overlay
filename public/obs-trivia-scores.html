@@ -26,7 +26,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent
 const p=new URLSearchParams(location.search);
 const room=p.get('room')||'mobiletest';
 const speed=Math.max(20,Math.min(300,Number(p.get('speed')||60)));
-const limit=Math.max(1,Math.min(100,Number(p.get('limit')||100)));
+const limit=Math.max(1,Math.min(500,Number(p.get('limit')||500)));
 const marquee=document.getElementById('marquee'),g1=document.getElementById('g1'),g2=document.getElementById('g2');
 let ws,retry=1000,lastSig='';
 
