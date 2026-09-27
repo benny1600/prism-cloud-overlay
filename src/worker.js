@@ -163,6 +163,7 @@ function buildTriviaLeaderboard(scores, limit = 20) {
   correct: row.correct,
   answered: row.answered
 };
+});
 }
 
 function getTriviaViewerScore(scores, userId) {
