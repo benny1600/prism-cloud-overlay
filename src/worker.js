@@ -89,13 +89,14 @@ function normalizeTrivia(value) {
   const answers = src.answers && typeof src.answers === "object" ? src.answers : {};
   const phase = ["idle","question","open","closed","revealed","leaderboard","tiebreaker"].includes(String(src.phase || "")) ? String(src.phase) : "idle";
   const positions=["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"];
-  const mapRow=row=>({
-    rank: Math.max(1, Math.floor(Number(row?.rank || 1))),
-    name: String(row?.name || "").slice(0, 100),
-    score: Math.max(0, Math.floor(Number(row?.score || 0))),
-    correct: Math.max(0, Math.floor(Number(row?.correct || 0))),
-    answered: Math.max(0, Math.floor(Number(row?.answered || 0)))
-  });
+ const mapRow=row=>({
+  rank: Math.max(1, Math.floor(Number(row?.rank || 1))),
+  name: String(row?.name || "").slice(0, 100),
+  avatarUrl: String(row?.avatarUrl || "").trim().slice(0, 1000),
+  score: Math.max(0, Math.floor(Number(row?.score || 0))),
+  correct: Math.max(0, Math.floor(Number(row?.correct || 0))),
+  answered: Math.max(0, Math.floor(Number(row?.answered || 0)))
+});
   return {
     visible: Boolean(src.visible), phase,
     questionId: String(src.questionId || "").slice(0, 120),
