@@ -671,13 +671,17 @@
       textColor:$('#studioTextColor').value,
       tickerColor:$('#studioTickerColor').value
     };
-    triviaSend('triviaSetStudioAppearance',a);
+    // Send appearance changes through the protected HTTP command endpoint.
+    // This avoids the controller WebSocket state echo overwriting the picker
+    // before the appearance command has been persisted by the Worker.
+    streamerbotTestCommand({action:'triviaSetStudioAppearance',...a})
+      .then(()=>note(reset?'Studio appearance reset':'Studio appearance applied'))
+      .catch(e=>note(`Appearance error: ${e.message}`));
     if(reset){
       $('#studioTriviaSize').value='100';$('#studioLeaderboardSize').value='80';
       $('#studioPanelColor').value=defaults.panelColor;$('#studioAccentColor').value=defaults.accentColor;
       $('#studioTextColor').value=defaults.textColor;$('#studioTickerColor').value=defaults.tickerColor;
     }
-    note(reset?'Studio appearance reset':'Studio appearance applied');
   }
   $('#studioApply').onclick=()=>sendStudioAppearance(false);
   $('#studioResetAppearance').onclick=()=>sendStudioAppearance(true);
