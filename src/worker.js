@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, trivia: { visible: false, phase: "idle", questionId: "", questionNumber: 0, question: "", answers: { A: "", B: "", C: "", D: "" }, correct: "", explanation: "", answerCount: 0, leaderboard: [], position: "center", size: 90, tickerVisible: false, tickerRows: [], tickerSize: 100, tickerSpeed: 42, tiebreaker: null }, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, trivia: { visible: false, phase: "idle", questionId: "", questionNumber: 0, question: "", answers: { A: "", B: "", C: "", D: "" }, correct: "", explanation: "", answerCount: 0, leaderboard: [], position: "center", size: 90, tickerVisible: false, tickerRows: [], tickerSize: 100, tickerSpeed: 42, studioAppearance: { triviaSize: 100, leaderboardSize: 80, panelColor: "#0d0f14", accentColor: "#5fef8f", textColor: "#ffffff", tickerColor: "#0f0f12" }, tiebreaker: null }, updatedAt: null });
 const TRIVIA_SHEET_URL = "https://script.google.com/macros/s/AKfycbxm50Ypsv--vcVlbFLPb7qK0NO1JHht9ylxUpfawuRJeRf6UExGpffuIaCx3JyH_1TphA/exec";
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -89,6 +89,16 @@ function normalizeTrivia(value) {
   const answers = src.answers && typeof src.answers === "object" ? src.answers : {};
   const phase = ["idle","question","open","closed","revealed","leaderboard","tiebreaker"].includes(String(src.phase || "")) ? String(src.phase) : "idle";
   const positions=["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"];
+  const studioColor = (value, fallback) => /^#[0-9a-fA-F]{6}$/.test(String(value || "")) ? String(value) : fallback;
+  const studioSrc = src.studioAppearance && typeof src.studioAppearance === "object" ? src.studioAppearance : {};
+  const studioAppearance = {
+    triviaSize: Math.max(50, Math.min(100, Number(studioSrc.triviaSize || 100))),
+    leaderboardSize: Math.max(50, Math.min(100, Number(studioSrc.leaderboardSize || 80))),
+    panelColor: studioColor(studioSrc.panelColor, "#0d0f14"),
+    accentColor: studioColor(studioSrc.accentColor, "#5fef8f"),
+    textColor: studioColor(studioSrc.textColor, "#ffffff"),
+    tickerColor: studioColor(studioSrc.tickerColor, "#0f0f12")
+  };
  const mapRow=row=>({
   rank: Math.max(1, Math.floor(Number(row?.rank || 1))),
   name: String(row?.name || "").slice(0, 100),
@@ -113,6 +123,7 @@ function normalizeTrivia(value) {
     tickerRows: Array.isArray(src.tickerRows)?src.tickerRows.slice(0,500).map(mapRow):[],
     tickerSize: Math.max(60,Math.min(150,Number(src.tickerSize||100))),
     tickerSpeed: Math.max(12,Math.min(90,Number(src.tickerSpeed||42))),
+    studioAppearance,
     tiebreaker: src.tiebreaker&&typeof src.tiebreaker==="object"?{
       winnerName:String(src.tiebreaker.winnerName||"").slice(0,100),
       score:Math.max(0,Math.floor(Number(src.tiebreaker.score||0))),
@@ -534,7 +545,7 @@ export class OverlayRoom extends DurableObject {
         await this.ctx.storage.delete("triviaAnswers");await this.ctx.storage.delete("triviaTiebreaker");
         const prior=normalizeTrivia(current.trivia);
         const scores=normalizeTriviaScores(await this.ctx.storage.get("triviaScores"));
-        next.trivia={visible:true,phase:"open",questionId,questionNumber:Math.max(0,Math.floor(Number(command.questionNumber||0))),question,answers:{A:String(answers.A).slice(0,240),B:String(answers.B).slice(0,240),C:String(answers.C).slice(0,240),D:String(answers.D).slice(0,240)},correct:"",explanation:"",answerCount:0,leaderboard:prior.leaderboard,position:["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position||""))?String(command.position):prior.position,size:Math.max(40,Math.min(100,Number(command.size||prior.size||90))),tickerVisible:prior.tickerVisible,tickerRows:buildTriviaLeaderboard(scores,500),tickerSize:prior.tickerSize,tickerSpeed:prior.tickerSpeed,tiebreaker:null};
+        next.trivia={visible:true,phase:"open",questionId,questionNumber:Math.max(0,Math.floor(Number(command.questionNumber||0))),question,answers:{A:String(answers.A).slice(0,240),B:String(answers.B).slice(0,240),C:String(answers.C).slice(0,240),D:String(answers.D).slice(0,240)},correct:"",explanation:"",answerCount:0,leaderboard:prior.leaderboard,position:["center","top","bottom","left","right","top-left","top-right","bottom-left","bottom-right"].includes(String(command.position||""))?String(command.position):prior.position,size:Math.max(40,Math.min(100,Number(command.size||prior.size||90))),tickerVisible:prior.tickerVisible,tickerRows:buildTriviaLeaderboard(scores,500),tickerSize:prior.tickerSize,tickerSpeed:prior.tickerSpeed,studioAppearance:prior.studioAppearance,tiebreaker:null};
         break;
       }
       case "triviaOpen":
@@ -586,6 +597,23 @@ export class OverlayRoom extends DurableObject {
       case "triviaSetTickerSettings": {
         const tr=normalizeTrivia(current.trivia);
         next.trivia={...tr,tickerSize:Math.max(60,Math.min(150,Number(command.size||tr.tickerSize||100))),tickerSpeed:Math.max(12,Math.min(90,Number(command.speed||tr.tickerSpeed||42)))};
+        break;
+      }
+      case "triviaSetStudioAppearance": {
+        const tr = normalizeTrivia(current.trivia);
+        const studioColor = (value, fallback) => /^#[0-9a-fA-F]{6}$/.test(String(value || "")) ? String(value) : fallback;
+        const old = tr.studioAppearance || {};
+        next.trivia = {
+          ...tr,
+          studioAppearance: {
+            triviaSize: Math.max(50, Math.min(100, Number(command.triviaSize || old.triviaSize || 100))),
+            leaderboardSize: Math.max(50, Math.min(100, Number(command.leaderboardSize || old.leaderboardSize || 80))),
+            panelColor: studioColor(command.panelColor, old.panelColor || "#0d0f14"),
+            accentColor: studioColor(command.accentColor, old.accentColor || "#5fef8f"),
+            textColor: studioColor(command.textColor, old.textColor || "#ffffff"),
+            tickerColor: studioColor(command.tickerColor, old.tickerColor || "#0f0f12")
+          }
+        };
         break;
       }
       case "triviaPickTiebreaker": {
@@ -657,7 +685,8 @@ export class OverlayRoom extends DurableObject {
         await this.ctx.storage.delete("triviaFinalized");
         await this.ctx.storage.delete("triviaTiebreaker");
         await this.ctx.storage.put("triviaSessionId", crypto.randomUUID());
-        next.trivia = { ...DEFAULT_STATE.trivia };
+        const studioAppearance = normalizeTrivia(current.trivia).studioAppearance;
+        next.trivia = { ...DEFAULT_STATE.trivia, studioAppearance };
         break;
       case "clear": next = { ...DEFAULT_STATE, currentPark: normalizePark(next.currentPark), rideSettings: normalizeRideSettings(next.rideSettings), trivia: normalizeTrivia(next.trivia) }; break;
       default: return json({ ok: false, error: "Unknown action" }, { status: 400 });
