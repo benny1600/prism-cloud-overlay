@@ -603,15 +603,18 @@ export class OverlayRoom extends DurableObject {
         const tr = normalizeTrivia(current.trivia);
         const studioColor = (value, fallback) => /^#[0-9a-fA-F]{6}$/.test(String(value || "")) ? String(value) : fallback;
         const old = tr.studioAppearance || {};
+        const incoming = command.studioAppearance && typeof command.studioAppearance === "object"
+          ? command.studioAppearance
+          : command;
         next.trivia = {
           ...tr,
           studioAppearance: {
-            triviaSize: Math.max(50, Math.min(100, Number(command.triviaSize || old.triviaSize || 100))),
-            leaderboardSize: Math.max(50, Math.min(100, Number(command.leaderboardSize || old.leaderboardSize || 80))),
-            panelColor: studioColor(command.panelColor, old.panelColor || "#0d0f14"),
-            accentColor: studioColor(command.accentColor, old.accentColor || "#5fef8f"),
-            textColor: studioColor(command.textColor, old.textColor || "#ffffff"),
-            tickerColor: studioColor(command.tickerColor, old.tickerColor || "#0f0f12")
+            triviaSize: Math.max(50, Math.min(100, Number(incoming.triviaSize || old.triviaSize || 100))),
+            leaderboardSize: Math.max(50, Math.min(100, Number(incoming.leaderboardSize || old.leaderboardSize || 80))),
+            panelColor: studioColor(incoming.panelColor, old.panelColor || "#0d0f14"),
+            accentColor: studioColor(incoming.accentColor, old.accentColor || "#5fef8f"),
+            textColor: studioColor(incoming.textColor, old.textColor || "#ffffff"),
+            tickerColor: studioColor(incoming.tickerColor, old.tickerColor || "#0f0f12")
           }
         };
         break;
