@@ -363,12 +363,17 @@
     if($('#rideSettingsPark')&&document.activeElement!==$('#rideSettingsPark'))$('#rideSettingsPark').value=park==='springs'?'mk':park;
     const tr=latestState.trivia||{};
     const sa=tr.studioAppearance||{};
-    if(document.activeElement?.id!=='studioTriviaSize'&&$('#studioTriviaSize'))$('#studioTriviaSize').value=String(sa.triviaSize||100);
-    if(document.activeElement?.id!=='studioLeaderboardSize'&&$('#studioLeaderboardSize'))$('#studioLeaderboardSize').value=String(sa.leaderboardSize||80);
-    if(document.activeElement?.id!=='studioPanelColor'&&$('#studioPanelColor'))$('#studioPanelColor').value=sa.panelColor||'#0d0f14';
-    if(document.activeElement?.id!=='studioAccentColor'&&$('#studioAccentColor'))$('#studioAccentColor').value=sa.accentColor||'#5fef8f';
-    if(document.activeElement?.id!=='studioTextColor'&&$('#studioTextColor'))$('#studioTextColor').value=sa.textColor||'#ffffff';
-    if(document.activeElement?.id!=='studioTickerColor'&&$('#studioTickerColor'))$('#studioTickerColor').value=sa.tickerColor||'#0f0f12';
+    // Only sync Studio Appearance controls when a fresh cloud state arrives.
+    // The 250ms timer below calls renderState() only to refresh live timer text;
+    // it must not overwrite a color the user is currently choosing before Apply.
+    if(s){
+      if(document.activeElement?.id!=='studioTriviaSize'&&$('#studioTriviaSize'))$('#studioTriviaSize').value=String(sa.triviaSize||100);
+      if(document.activeElement?.id!=='studioLeaderboardSize'&&$('#studioLeaderboardSize'))$('#studioLeaderboardSize').value=String(sa.leaderboardSize||80);
+      if(document.activeElement?.id!=='studioPanelColor'&&$('#studioPanelColor'))$('#studioPanelColor').value=sa.panelColor||'#0d0f14';
+      if(document.activeElement?.id!=='studioAccentColor'&&$('#studioAccentColor'))$('#studioAccentColor').value=sa.accentColor||'#5fef8f';
+      if(document.activeElement?.id!=='studioTextColor'&&$('#studioTextColor'))$('#studioTextColor').value=sa.textColor||'#ffffff';
+      if(document.activeElement?.id!=='studioTickerColor'&&$('#studioTickerColor'))$('#studioTickerColor').value=sa.tickerColor||'#0f0f12';
+    }
     if($('#triviaStatus')){
       const labels={idle:'IDLE',question:'QUESTION READY',open:'ANSWERS OPEN',closed:'ANSWERS CLOSED',revealed:`ANSWER REVEALED${tr.correct?' • '+tr.correct:''}`,leaderboard:'LEADERBOARD'};
       $('#triviaStatus').textContent=tr.visible===false&&tr.phase!=='idle'?'HIDDEN':(labels[tr.phase]||String(tr.phase||'IDLE').toUpperCase());
