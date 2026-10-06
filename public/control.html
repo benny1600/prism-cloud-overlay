@@ -26,6 +26,20 @@
 .trivia-sheet-meta{margin-top:9px;font-size:13px;opacity:.82}
 .trivia-sheet-tools .bigbtn{width:100%;min-height:56px;margin-top:10px}
 @media(max-width:600px){.trivia-grid,.trivia-actions{grid-template-columns:1fr}.trivia-wide{grid-column:auto}}
+.trivia-live{position:sticky;top:104px;z-index:12;margin:0 0 14px;padding:12px;border:2px solid #454c59;border-radius:16px;background:rgba(17,19,24,.97);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.trivia-live-title{font-size:12px;font-weight:900;letter-spacing:.08em;opacity:.72;margin-bottom:8px}
+.trivia-live-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.trivia-live-grid .bigbtn{min-height:58px;font-size:16px}
+.trivia-live-grid .primary{background:#f4f5f7;color:#111}
+.trivia-live-grid .closebtn{background:#9a6a19;color:#fff}
+.trivia-live-grid .revealbtn{background:#246a42;color:#fff}
+.trivia-live-grid .leaderbtn{background:#315d91;color:#fff}
+.trivia-live-grid .hidebtn{background:#252932;color:#fff}
+.trivia-editor-title{font-size:12px;font-weight:900;letter-spacing:.08em;opacity:.72;margin:16px 0 8px}
+.trivia-reset-zone{margin-top:24px;padding-top:18px;border-top:1px solid #343943}
+.trivia-reset-zone .danger{width:100%;min-height:54px}
+@media(max-width:600px){.trivia-live{top:98px}.trivia-live-grid{grid-template-columns:1fr 1fr}.trivia-live-grid .bigbtn{font-size:14px;min-height:56px}}
+
 
 </style>
 </head>
@@ -166,19 +180,28 @@
 <section id="trivia" class="panel">
   <div class="card trivia-card">
     <h2>Trivia Control</h2>
-    <p class="status">Load an unused enabled question from Google Sheets, review it, then run the existing trivia controls.</p>
     <div id="triviaStatus" class="trivia-status">IDLE</div>
+    <div id="triviaAnswerCount" class="status" style="text-align:center;margin:-4px 0 12px">0 answers received</div>
 
+    <div class="trivia-live">
+      <div class="trivia-live-title">LIVE GAME CONTROLS</div>
+      <div class="trivia-live-grid">
+        <button id="triviaShow" class="bigbtn primary trivia-wide">▶ SHOW QUESTION</button>
+        <button id="triviaClose" class="bigbtn closebtn">■ CLOSE ANSWERS</button>
+        <button id="triviaReveal" class="bigbtn revealbtn">✓ REVEAL ANSWER</button>
+        <button id="triviaLeaderboard" class="bigbtn leaderbtn">🏆 LEADERBOARD</button>
+        <button id="triviaHide" class="bigbtn hidebtn">HIDE TRIVIA</button>
+      </div>
+    </div>
+
+    <div class="trivia-editor-title">LOAD / PREPARE NEXT QUESTION</div>
     <div class="trivia-sheet-tools">
       <div class="trivia-grid">
         <label class="card" style="padding:10px">Category
-           <select id="triviaSheetCategory" class="field" style="margin-top:7px">
+          <select id="triviaSheetCategory" class="field" style="margin-top:7px">
             <option value="">All categories</option>
-             <option value="Disney Parks">Disney Parks</option>
-             <option value="Disney Films">Disney Films</option>
-             <option value="Disney Characters">Disney Characters</option>
-             <option value="Star Wars">Star Wars</option>
-</select>
+            <option value="Disney Parks">Disney Parks</option>
+          </select>
         </label>
         <label class="card" style="padding:10px">Difficulty
           <select id="triviaSheetDifficulty" class="field" style="margin-top:7px">
@@ -217,50 +240,12 @@
     <label class="status" for="triviaExplanation">Explanation / fun fact</label>
     <textarea id="triviaExplanation" class="field" maxlength="500" placeholder="Shown after the answer is revealed" style="min-height:74px;resize:vertical"></textarea>
 
-    <div class="settings">
-      <label class="card" style="padding:10px">Trivia position
-        <select id="triviaPosition" class="field" style="margin-top:7px">
-          <option value="center" selected>Center</option><option value="top">Top center</option><option value="bottom">Bottom center</option>
-          <option value="left">Left center</option><option value="right">Right center</option>
-          <option value="top-left">Top left</option><option value="top-right">Top right</option>
-          <option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option>
-        </select>
-      </label>
-      <label class="card" style="padding:10px">Trivia size
-        <select id="triviaSize" class="field" style="margin-top:7px">
-          <option value="40">40%</option><option value="50">50%</option><option value="60">60%</option>
-          <option value="75">75%</option><option value="90" selected>90%</option><option value="100">100%</option>
-        </select>
-      </label>
+    <div class="trivia-reset-zone">
+      <button id="triviaReset" class="bigbtn danger">RESET ENTIRE GAME</button>
     </div>
 
-    <div class="trivia-actions">
-      <button id="triviaTickerShow" class="bigbtn secondary">SHOW SCORE TICKER</button>
-      <button id="triviaTickerHide" class="bigbtn secondary">HIDE SCORE TICKER</button>
-      <label class="card" style="padding:10px">Ticker size
-        <select id="triviaTickerSize" class="field" style="margin-top:7px">
-          <option value="60">60%</option><option value="80">80%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option>
-        </select>
-      </label>
-      <label class="card" style="padding:10px">Ticker speed
-        <select id="triviaTickerSpeed" class="field" style="margin-top:7px">
-          <option value="60">Slow</option><option value="42" selected>Normal</option><option value="28">Fast</option><option value="18">Very fast</option>
-        </select>
-      </label>
-      <button id="triviaTiebreaker" class="bigbtn play trivia-wide">🎲 PICK TIEBREAKER WINNER</button>
-      <button id="triviaAuditDownload" class="bigbtn secondary">DOWNLOAD ANSWER LOG</button>
-      <button id="triviaAuditClear" class="bigbtn danger">CLEAR ANSWER LOG</button>
-    </div>
-
-    <div class="trivia-actions">
-      <button id="triviaShow" class="bigbtn play trivia-wide">SHOW QUESTION</button>
-      <button id="triviaClose" class="bigbtn secondary trivia-wide">CLOSE ANSWERS</button>
-      <button id="triviaReveal" class="bigbtn play trivia-wide">REVEAL ANSWER</button>
-      <button id="triviaLeaderboard" class="bigbtn secondary">SHOW LEADERBOARD</button>
-      <button id="triviaHide" class="bigbtn secondary">HIDE TRIVIA</button>
-      <button id="triviaReset" class="bigbtn danger trivia-wide">RESET GAME</button>
-    </div>
-    <div id="triviaAnswerCount" class="status" style="text-align:center;margin-top:12px">0 answers received</div>
+    <!-- Kept for compatibility with the existing JavaScript; SHOW QUESTION already opens answers in the live workflow. -->
+    <button id="triviaOpen" class="hidden" type="button">OPEN ANSWERS</button>
   </div>
 </section>
 
@@ -348,10 +333,6 @@
       $('#triviaStatus').textContent=tr.visible===false&&tr.phase!=='idle'?'HIDDEN':(labels[tr.phase]||String(tr.phase||'IDLE').toUpperCase());
     }
     if($('#triviaAnswerCount')){const n=Math.max(0,Number(tr.answerCount||0));$('#triviaAnswerCount').textContent=`${n} answer${n===1?'':'s'} received`;}
-    if($('#triviaPosition')&&document.activeElement!==$('#triviaPosition')&&tr.position)$('#triviaPosition').value=tr.position;
-    if($('#triviaSize')&&document.activeElement!==$('#triviaSize')&&tr.size)$('#triviaSize').value=String(tr.size);
-    if($('#triviaTickerSize')&&document.activeElement!==$('#triviaTickerSize')&&tr.tickerSize)$('#triviaTickerSize').value=String(tr.tickerSize);
-    if($('#triviaTickerSpeed')&&document.activeElement!==$('#triviaTickerSpeed')&&tr.tickerSpeed)$('#triviaTickerSpeed').value=String(tr.tickerSpeed);
   }
   setInterval(()=>renderState(),250);
   const fmt=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
@@ -598,10 +579,7 @@
       question:$('#triviaQuestion')?.value.trim()||'',
       answers:{A:$('#triviaA')?.value.trim()||'',B:$('#triviaB')?.value.trim()||'',C:$('#triviaC')?.value.trim()||'',D:$('#triviaD')?.value.trim()||''},
       correct:$('#triviaCorrect')?.value||'A',
-      explanation:$('#triviaExplanation')?.value.trim()||'',
-      sheetQuestionId:loadedSheetQuestionId,
-      position:$('#triviaPosition')?.value||'center',
-      size:Number($('#triviaSize')?.value||90)
+      explanation:$('#triviaExplanation')?.value.trim()||''
     };
   }
   function triviaSend(action,extra={}){return cmd({action,...extra})}
@@ -634,48 +612,8 @@
     }catch(e){note(`Question shown, but Sheet Used update failed: ${e.message}`)}
   }
   $('#triviaLoadQuestion').onclick=loadTriviaSheetQuestion;
-  $('#triviaPosition').onchange=()=>triviaSend('triviaSetDisplay',{position:$('#triviaPosition').value,size:Number($('#triviaSize').value||90)});
-  $('#triviaSize').onchange=()=>triviaSend('triviaSetDisplay',{position:$('#triviaPosition').value,size:Number($('#triviaSize').value||90)});
-  $('#triviaTickerShow').onclick=()=>{triviaSend('triviaSetTicker',{visible:true});note('Score ticker shown')};
-  $('#triviaTickerHide').onclick=()=>{triviaSend('triviaSetTicker',{visible:false});note('Score ticker hidden')};
-  function updateTriviaTickerSettings(){triviaSend('triviaSetTickerSettings',{size:Number($('#triviaTickerSize')?.value||100),speed:Number($('#triviaTickerSpeed')?.value||42)})}
-  $('#triviaTickerSize').onchange=updateTriviaTickerSettings;
-  $('#triviaTickerSpeed').onchange=updateTriviaTickerSettings;
-  $('#triviaTiebreaker').onclick=()=>{triviaSend('triviaPickTiebreaker');note('Tiebreaker requested')};
-  async function downloadTriviaAudit(){
-    try{
-      const d=await api(`/api/${encodeURIComponent(room)}/command`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'triviaGetAudit'})});
-      const rows=Array.isArray(d.audit)?d.audit:[];
-      if(!rows.length){note('Answer log is empty');return}
-      const cols=['sessionId','questionId','questionNumber','sheetQuestionId','question','userId','name','choice','correctChoice','isCorrect','answeredAt'];
-      const csv=[cols.join(',')].concat(rows.map(r=>cols.map(k=>'"'+String(r?.[k]??'').replace(/"/g,'""')+'"').join(','))).join('\r\n');
-      const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='trivia-answer-log-'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
-      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);note(`Downloaded ${rows.length} answer records`);
-    }catch(e){note('Answer log error: '+e.message)}
-  }
-  $('#triviaAuditDownload').onclick=downloadTriviaAudit;
-  $('#triviaAuditClear').onclick=async()=>{if(!confirm('Clear the saved trivia answer audit log? Download it first if you need a record.'))return;try{await api(`/api/${encodeURIComponent(room)}/command`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'triviaClearAudit'})});note('Answer audit log cleared')}catch(e){note(e.message)}};
-
-  $('#triviaShow').onclick=()=>{
-    const d=triviaDraft();
-    if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}
-    const current=latestState.trivia||{};
-    const sameCurrent=['question','open','closed','revealed'].includes(String(current.phase||'')) && String(current.question||'')===d.question;
-    if(sameCurrent){
-      triviaSend('triviaShowCurrent');
-      setTriviaStatus(String(current.phase||'open').toUpperCase());
-      note(current.visible===false?'Current trivia restored — answers preserved':'Current trivia already showing — answers preserved');
-      return;
-    }
-    const sheetId=loadedSheetQuestionId;
-    const sent=triviaSend('triviaSetQuestion',d);
-    if(!sent)return;
-    setTriviaStatus('ANSWERS OPEN');
-    note('Question shown — answers are open');
-    if(sheetId)markLoadedTriviaUsed(sheetId);
-    $('#triviaNumber').value=Math.max(1,Number(d.questionNumber||1)+1);
-  };
+  $('#triviaShow').onclick=()=>{const d=triviaDraft();if(!d.question||Object.values(d.answers).some(v=>!v)){note('Enter the question and all four answers');return}const sheetId=loadedSheetQuestionId;const sent=triviaSend('triviaSetQuestion',d);if(!sent)return;setTriviaStatus('QUESTION READY');note('Question sent to Cloudflare');if(sheetId)markLoadedTriviaUsed(sheetId);$('#triviaNumber').value=Math.max(1,Number(d.questionNumber||1)+1);};
+  $('#triviaOpen').onclick=()=>{triviaSend('triviaOpen');setTriviaStatus('ANSWERS OPEN');note('Answers opened')};
   $('#triviaClose').onclick=()=>{triviaSend('triviaClose');setTriviaStatus('ANSWERS CLOSED');note('Answers closed')};
   $('#triviaReveal').onclick=()=>{triviaSend('triviaReveal');setTriviaStatus(`ANSWER REVEALED • ${$('#triviaCorrect').value}`);note('Answer revealed')};
   $('#triviaLeaderboard').onclick=()=>{triviaSend('triviaShowLeaderboard');setTriviaStatus('LEADERBOARD');note('Leaderboard requested')};
