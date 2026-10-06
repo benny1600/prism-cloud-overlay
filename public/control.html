@@ -41,6 +41,13 @@
 @media(max-width:600px){.trivia-live{top:98px}.trivia-live-grid{grid-template-columns:1fr 1fr}.trivia-live-grid .bigbtn{font-size:14px;min-height:56px}}
 
 
+
+.studio-appearance{margin-top:16px;padding:14px;border:1px solid #3a4050;border-radius:14px;background:#111318}
+.studio-appearance h3{margin:0 0 5px}
+.studio-color-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.studio-color-grid label{font-size:12px;font-weight:800}
+.studio-color-grid input[type=color]{width:100%;height:48px;margin-top:6px;padding:4px;border-radius:10px;border:1px solid #353a43;background:#111318}
+@media(max-width:600px){.studio-color-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -240,6 +247,33 @@
     <label class="status" for="triviaExplanation">Explanation / fun fact</label>
     <textarea id="triviaExplanation" class="field" maxlength="500" placeholder="Shown after the answer is revealed" style="min-height:74px;resize:vertical"></textarea>
 
+    <div class="studio-appearance">
+      <h3>Studio Appearance</h3>
+      <div class="status">Controls studio-trivia.html live.</div>
+      <div class="settings">
+        <label class="card" style="padding:10px">Trivia size
+          <select id="studioTriviaSize" class="field" style="margin-top:7px">
+            <option value="50">50%</option><option value="60">60%</option><option value="70">70%</option><option value="80">80%</option><option value="90">90%</option><option value="100" selected>100%</option>
+          </select>
+        </label>
+        <label class="card" style="padding:10px">Leaderboard size
+          <select id="studioLeaderboardSize" class="field" style="margin-top:7px">
+            <option value="50">50%</option><option value="60">60%</option><option value="70">70%</option><option value="80" selected>80%</option><option value="90">90%</option><option value="100">100%</option>
+          </select>
+        </label>
+      </div>
+      <div class="studio-color-grid">
+        <label>Panel color<input id="studioPanelColor" type="color" value="#0d0f14"></label>
+        <label>Accent color<input id="studioAccentColor" type="color" value="#5fef8f"></label>
+        <label>Text color<input id="studioTextColor" type="color" value="#ffffff"></label>
+        <label>Ticker color<input id="studioTickerColor" type="color" value="#0f0f12"></label>
+      </div>
+      <div class="settings" style="margin-top:12px">
+        <button id="studioApply" class="bigbtn play">APPLY COLORS / SIZE</button>
+        <button id="studioResetAppearance" class="bigbtn secondary">RESET APPEARANCE</button>
+      </div>
+    </div>
+
     <div class="trivia-reset-zone">
       <button id="triviaReset" class="bigbtn danger">RESET ENTIRE GAME</button>
     </div>
@@ -328,6 +362,13 @@
     if($('#timerReported')){const rep=typeof t.reportedWait==='number'?`${t.reportedWait} min`:(t.reportedStatus||'—');$('#timerReported').textContent=`Reported wait at start: ${rep}`}
     if($('#rideSettingsPark')&&document.activeElement!==$('#rideSettingsPark'))$('#rideSettingsPark').value=park==='springs'?'mk':park;
     const tr=latestState.trivia||{};
+    const sa=tr.studioAppearance||{};
+    if(document.activeElement?.id!=='studioTriviaSize'&&$('#studioTriviaSize'))$('#studioTriviaSize').value=String(sa.triviaSize||100);
+    if(document.activeElement?.id!=='studioLeaderboardSize'&&$('#studioLeaderboardSize'))$('#studioLeaderboardSize').value=String(sa.leaderboardSize||80);
+    if(document.activeElement?.id!=='studioPanelColor'&&$('#studioPanelColor'))$('#studioPanelColor').value=sa.panelColor||'#0d0f14';
+    if(document.activeElement?.id!=='studioAccentColor'&&$('#studioAccentColor'))$('#studioAccentColor').value=sa.accentColor||'#5fef8f';
+    if(document.activeElement?.id!=='studioTextColor'&&$('#studioTextColor'))$('#studioTextColor').value=sa.textColor||'#ffffff';
+    if(document.activeElement?.id!=='studioTickerColor'&&$('#studioTickerColor'))$('#studioTickerColor').value=sa.tickerColor||'#0f0f12';
     if($('#triviaStatus')){
       const labels={idle:'IDLE',question:'QUESTION READY',open:'ANSWERS OPEN',closed:'ANSWERS CLOSED',revealed:`ANSWER REVEALED${tr.correct?' • '+tr.correct:''}`,leaderboard:'LEADERBOARD'};
       $('#triviaStatus').textContent=tr.visible===false&&tr.phase!=='idle'?'HIDDEN':(labels[tr.phase]||String(tr.phase||'IDLE').toUpperCase());
@@ -619,6 +660,27 @@
   $('#triviaLeaderboard').onclick=()=>{triviaSend('triviaShowLeaderboard');setTriviaStatus('LEADERBOARD');note('Leaderboard requested')};
   $('#triviaHide').onclick=()=>{triviaSend('triviaHide');setTriviaStatus('HIDDEN');note('Trivia hidden')};
   $('#triviaReset').onclick=()=>{if(confirm('Reset the entire trivia game? This clears the current question and game data.')){triviaSend('triviaReset');$('#triviaQuestion').value='';['A','B','C','D'].forEach(x=>$('#trivia'+x).value='');$('#triviaExplanation').value='';$('#triviaCorrect').value='A';$('#triviaNumber').value='1';loadedSheetQuestionId='';if($('#triviaSheetMeta'))$('#triviaSheetMeta').textContent='Google Sheet ready • no question loaded';setTriviaStatus('IDLE');$('#triviaAnswerCount').textContent='0 answers received';note('Trivia game reset')}};
+
+  function sendStudioAppearance(reset=false){
+    const defaults={triviaSize:100,leaderboardSize:80,panelColor:'#0d0f14',accentColor:'#5fef8f',textColor:'#ffffff',tickerColor:'#0f0f12'};
+    const a=reset?defaults:{
+      triviaSize:Number($('#studioTriviaSize').value||100),
+      leaderboardSize:Number($('#studioLeaderboardSize').value||80),
+      panelColor:$('#studioPanelColor').value,
+      accentColor:$('#studioAccentColor').value,
+      textColor:$('#studioTextColor').value,
+      tickerColor:$('#studioTickerColor').value
+    };
+    triviaSend('triviaSetStudioAppearance',a);
+    if(reset){
+      $('#studioTriviaSize').value='100';$('#studioLeaderboardSize').value='80';
+      $('#studioPanelColor').value=defaults.panelColor;$('#studioAccentColor').value=defaults.accentColor;
+      $('#studioTextColor').value=defaults.textColor;$('#studioTickerColor').value=defaults.tickerColor;
+    }
+    note(reset?'Studio appearance reset':'Studio appearance applied');
+  }
+  $('#studioApply').onclick=()=>sendStudioAppearance(false);
+  $('#studioResetAppearance').onclick=()=>sendStudioAppearance(true);
 
   $('#refresh').onclick=loadLibrary;
   $('#uploadBtn').onclick=async()=>{const f=$('#fileInput').files[0];if(!f){note('Choose a file first');return}if(f.size>75*1024*1024){note('File is over 75 MB');return}$('#uploadStatus').textContent=`Uploading ${f.name}…`;try{await api(`/api/media/upload?name=${encodeURIComponent(f.name)}`,{method:'POST',headers:{'content-type':f.type||'application/octet-stream','X-File-Name':f.name},body:f});$('#uploadStatus').textContent='Upload complete';$('#fileInput').value='';note('Media uploaded');loadLibrary();document.querySelector('[data-tab="library"]').click()}catch(e){$('#uploadStatus').textContent=e.message}};
