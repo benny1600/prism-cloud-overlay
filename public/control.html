@@ -198,6 +198,7 @@
         <button id="triviaReveal" class="bigbtn revealbtn">✓ REVEAL ANSWER</button>
         <button id="triviaLeaderboard" class="bigbtn leaderbtn">🏆 LEADERBOARD</button>
         <button id="triviaHide" class="bigbtn hidebtn">HIDE TRIVIA</button>
+        <button id="triviaTiebreaker" class="bigbtn leaderbtn trivia-wide">🎲 PICK TIEBREAKER</button>
       </div>
     </div>
 
@@ -664,6 +665,7 @@
   $('#triviaReveal').onclick=()=>{triviaSend('triviaReveal');setTriviaStatus(`ANSWER REVEALED • ${$('#triviaCorrect').value}`);note('Answer revealed')};
   $('#triviaLeaderboard').onclick=()=>{triviaSend('triviaShowLeaderboard');setTriviaStatus('LEADERBOARD');note('Leaderboard requested')};
   $('#triviaHide').onclick=()=>{triviaSend('triviaHide');setTriviaStatus('HIDDEN');note('Trivia hidden')};
+  $('#triviaTiebreaker').onclick=()=>{triviaSend('triviaPickTiebreaker');setTriviaStatus('TIEBREAKER');note('Tiebreaker picker requested')};
   $('#triviaReset').onclick=()=>{if(confirm('Reset the entire trivia game? This clears the current question and game data.')){triviaSend('triviaReset');$('#triviaQuestion').value='';['A','B','C','D'].forEach(x=>$('#trivia'+x).value='');$('#triviaExplanation').value='';$('#triviaCorrect').value='A';$('#triviaNumber').value='1';loadedSheetQuestionId='';if($('#triviaSheetMeta'))$('#triviaSheetMeta').textContent='Google Sheet ready • no question loaded';setTriviaStatus('IDLE');$('#triviaAnswerCount').textContent='0 answers received';note('Trivia game reset')}};
 
   function sendStudioAppearance(reset=false){
