@@ -263,6 +263,18 @@
           </select>
         </label>
       </div>
+      <div class="studio-position" style="margin:12px 0;padding:12px;border:1px solid #353a43;border-radius:12px">
+        <strong>Studio Trivia Question Position</strong>
+        <div class="status" style="margin:5px 0 10px">Moves the question and answers only. Leaderboard and ticker stay where they are.</div>
+        <label for="studioQuestionX">Horizontal position: <strong id="studioQuestionXValue">50%</strong></label>
+        <input id="studioQuestionX" type="range" min="10" max="90" step="1" value="50" style="width:100%;margin:7px 0 14px">
+        <label for="studioQuestionY">Vertical position: <strong id="studioQuestionYValue">50%</strong></label>
+        <input id="studioQuestionY" type="range" min="10" max="90" step="1" value="50" style="width:100%;margin:7px 0 12px">
+        <div class="settings" style="margin-bottom:0">
+          <button id="studioApplyPosition" class="bigbtn play">APPLY POSITION</button>
+          <button id="studioResetPosition" class="bigbtn secondary">CENTER QUESTION</button>
+        </div>
+      </div>
       <div class="studio-color-grid">
         <label>Panel color<input id="studioPanelColor" type="color" value="#0d0f14"></label>
         <label>Accent color<input id="studioAccentColor" type="color" value="#5fef8f"></label>
@@ -368,6 +380,11 @@
     // The 250ms timer below calls renderState() only to refresh live timer text;
     // it must not overwrite a color the user is currently choosing before Apply.
     if(s){
+      for(const [axis,prop] of [['X','questionX'],['Y','questionY']]){
+        const input=$('#studioQuestion'+axis),value=$('#studioQuestion'+axis+'Value');
+        if(input&&document.activeElement!==input)input.value=String(sa[prop]??50);
+        if(value&&input)value.textContent=input.value+'%';
+      }
       if(document.activeElement?.id!=='studioTriviaSize'&&$('#studioTriviaSize'))$('#studioTriviaSize').value=String(sa.triviaSize||100);
       if(document.activeElement?.id!=='studioLeaderboardSize'&&$('#studioLeaderboardSize'))$('#studioLeaderboardSize').value=String(sa.leaderboardSize||80);
       if(document.activeElement?.id!=='studioPanelColor'&&$('#studioPanelColor'))$('#studioPanelColor').value=sa.panelColor||'#0d0f14';
@@ -670,13 +687,15 @@
 
   function sendStudioAppearance(reset=false){
     const defaults={triviaSize:100,leaderboardSize:80,panelColor:'#0d0f14',accentColor:'#5fef8f',textColor:'#ffffff',tickerColor:'#0f0f12'};
-    const a=reset?defaults:{
+     const a=reset?{...defaults,questionX:Number($('#studioQuestionX').value),questionY:Number($('#studioQuestionY').value)}:{
       triviaSize:Number($('#studioTriviaSize').value||100),
       leaderboardSize:Number($('#studioLeaderboardSize').value||80),
       panelColor:$('#studioPanelColor').value,
       accentColor:$('#studioAccentColor').value,
       textColor:$('#studioTextColor').value,
-      tickerColor:$('#studioTickerColor').value
+       tickerColor:$('#studioTickerColor').value,
+       questionX:Number($('#studioQuestionX').value),
+       questionY:Number($('#studioQuestionY').value)
     };
     // Send appearance changes through the protected HTTP command endpoint.
     // This avoids the controller WebSocket state echo overwriting the picker
@@ -690,6 +709,19 @@
       $('#studioTextColor').value=defaults.textColor;$('#studioTickerColor').value=defaults.tickerColor;
     }
   }
+   for(const axis of ['X','Y'])$('#studioQuestion'+axis).oninput=()=>{$('#studioQuestion'+axis+'Value').textContent=$('#studioQuestion'+axis).value+'%'};
+   async function sendStudioPosition(x,y){
+     try{
+       await streamerbotTestCommand({action:'triviaSetStudioAppearance',questionX:x,questionY:y});
+       note('Studio question position saved');
+     }catch(e){note('Position error: '+e.message)}
+   }
+   $('#studioApplyPosition').onclick=()=>sendStudioPosition(Number($('#studioQuestionX').value),Number($('#studioQuestionY').value));
+   $('#studioResetPosition').onclick=()=>{
+     $('#studioQuestionX').value='50';$('#studioQuestionY').value='50';
+     $('#studioQuestionXValue').textContent='50%';$('#studioQuestionYValue').textContent='50%';
+     sendStudioPosition(50,50);
+   };
   $('#studioApply').onclick=()=>sendStudioAppearance(false);
   $('#studioResetAppearance').onclick=()=>sendStudioAppearance(true);
 
