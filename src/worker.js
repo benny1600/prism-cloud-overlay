@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, trivia: { visible: false, phase: "idle", questionId: "", questionNumber: 0, question: "", answers: { A: "", B: "", C: "", D: "" }, correct: "", explanation: "", answerCount: 0, leaderboard: [], position: "center", size: 90, tickerVisible: false, tickerRows: [], tickerSize: 100, tickerSpeed: 42, studioAppearance: { triviaSize: 100, leaderboardSize: 80, panelColor: "#0d0f14", accentColor: "#5fef8f", textColor: "#ffffff", tickerColor: "#0f0f12", tickerScale: 100, questionX: 50, questionY: 50 }, tiebreaker: null }, updatedAt: null });
+const DEFAULT_STATE = Object.freeze({ currentPark: "mk", graphics: [], video: null, text: null, rideWait: null, weather: null, radar: null, rideSettings: {}, lineTimer: { name: "", rideKey: "", park: "mk", reportedWait: null, reportedStatus: "", running: false, visible: false, startedAt: null, accumulatedMs: 0, stoppedAt: null }, trivia: { visible: false, phase: "idle", questionId: "", questionNumber: 0, question: "", answers: { A: "", B: "", C: "", D: "" }, correct: "", explanation: "", answerCount: 0, leaderboard: [], position: "center", size: 90, tickerVisible: false, tickerRows: [], tickerSize: 100, tickerSpeed: 42, studioAppearance: { triviaSize: 100, leaderboardSize: 80, panelColor: "#0d0f14", accentColor: "#5fef8f", textColor: "#ffffff", tickerColor: "#0f0f12", tickerScale: 100, tickerSpeed: 60, questionX: 50, questionY: 50 }, tiebreaker: null }, updatedAt: null });
 const TRIVIA_SHEET_URL = "https://script.google.com/macros/s/AKfycbxm50Ypsv--vcVlbFLPb7qK0NO1JHht9ylxUpfawuRJeRf6UExGpffuIaCx3JyH_1TphA/exec";
 const MAX_UPLOAD_BYTES = 75 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -99,6 +99,7 @@ function normalizeTrivia(value) {
     textColor: studioColor(studioSrc.textColor, "#ffffff"),
     tickerColor: studioColor(studioSrc.tickerColor, "#0f0f12"),
     tickerScale: Math.max(75, Math.min(200, Number(studioSrc.tickerScale ?? 100))),
+    tickerSpeed: Math.max(20, Math.min(180, Number(studioSrc.tickerSpeed ?? 60))),
     questionX: Math.max(10, Math.min(90, Number(studioSrc.questionX ?? 50) || 50)),
     questionY: Math.max(10, Math.min(90, Number(studioSrc.questionY ?? 50) || 50))
   };
@@ -619,6 +620,7 @@ export class OverlayRoom extends DurableObject {
             textColor: studioColor(incoming.textColor, old.textColor || "#ffffff"),
             tickerColor: studioColor(incoming.tickerColor, old.tickerColor || "#0f0f12"),
             tickerScale: Math.max(75, Math.min(200, Number(incoming.tickerScale ?? old.tickerScale ?? 100))),
+            tickerSpeed: Math.max(20, Math.min(180, Number(incoming.tickerSpeed ?? old.tickerSpeed ?? 60))),
             questionX: Math.max(10, Math.min(90, Number(incoming.questionX ?? old.questionX ?? 50) || 50)),
             questionY: Math.max(10, Math.min(90, Number(incoming.questionY ?? old.questionY ?? 50) || 50))
           }
