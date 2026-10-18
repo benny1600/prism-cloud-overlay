@@ -93,7 +93,7 @@ function normalizeTrivia(value) {
   const studioSrc = src.studioAppearance && typeof src.studioAppearance === "object" ? src.studioAppearance : {};
   const studioAppearance = {
     triviaSize: Math.max(50, Math.min(100, Number(studioSrc.triviaSize || 100))),
-    leaderboardSize: Math.max(50, Math.min(100, Number(studioSrc.leaderboardSize || 80))),
+    leaderboardSize: Math.max(50, Math.min(150, Number(studioSrc.leaderboardSize || 80))),
     panelColor: studioColor(studioSrc.panelColor, "#0d0f14"),
     accentColor: studioColor(studioSrc.accentColor, "#5fef8f"),
     textColor: studioColor(studioSrc.textColor, "#ffffff"),
@@ -612,7 +612,7 @@ export class OverlayRoom extends DurableObject {
           ...tr,
           studioAppearance: {
             triviaSize: Math.max(50, Math.min(100, Number(incoming.triviaSize || old.triviaSize || 100))),
-            leaderboardSize: Math.max(50, Math.min(100, Number(incoming.leaderboardSize || old.leaderboardSize || 80))),
+            leaderboardSize: Math.max(50, Math.min(150, Number(incoming.leaderboardSize || old.leaderboardSize || 80))),
             panelColor: studioColor(incoming.panelColor, old.panelColor || "#0d0f14"),
             accentColor: studioColor(incoming.accentColor, old.accentColor || "#5fef8f"),
             textColor: studioColor(incoming.textColor, old.textColor || "#ffffff"),
