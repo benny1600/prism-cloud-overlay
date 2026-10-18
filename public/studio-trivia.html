@@ -46,7 +46,7 @@ function ticker(s){let rows=(s.trivia?.tickerRows||[]).slice(0,limit),sig=JSON.s
 function appearance(s){
  let a=s.trivia?.studioAppearance||{}, root=document.documentElement;
  let ts=Math.max(50,Math.min(100,Number(a.triviaSize||100)))/100;
- let ls=Math.max(50,Math.min(100,Number(a.leaderboardSize||80)))/100;
+ let ls=Math.max(50,Math.min(150,Number(a.leaderboardSize||80)))/100;
  root.style.setProperty('--panel',a.panelColor||'#0d0f14');
  root.style.setProperty('--accent',a.accentColor||'#5fef8f');
  root.style.setProperty('--text',a.textColor||'#ffffff');
