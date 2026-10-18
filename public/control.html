@@ -263,6 +263,14 @@
           </select>
         </label>
       </div>
+      <div class="settings" style="margin-top:12px">
+        <label class="card" style="padding:10px">Scrolling ticker size
+          <select id="studioTickerSize" class="field" style="margin-top:7px">
+            <option value="75">75%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option><option value="175">175%</option><option value="200">200%</option>
+          </select>
+        </label>
+        <button id="studioApplyTickerSize" class="bigbtn play" style="align-self:end">APPLY TICKER SIZE</button>
+      </div>
       <div class="studio-position" style="margin:12px 0;padding:12px;border:1px solid #353a43;border-radius:12px">
         <strong>Studio Trivia Question Position</strong>
         <div class="status" style="margin:5px 0 10px">Moves the question and answers only. Leaderboard and ticker stay where they are.</div>
@@ -390,6 +398,7 @@
       if(document.activeElement?.id!=='studioPanelColor'&&$('#studioPanelColor'))$('#studioPanelColor').value=sa.panelColor||'#0d0f14';
       if(document.activeElement?.id!=='studioAccentColor'&&$('#studioAccentColor'))$('#studioAccentColor').value=sa.accentColor||'#5fef8f';
       if(document.activeElement?.id!=='studioTextColor'&&$('#studioTextColor'))$('#studioTextColor').value=sa.textColor||'#ffffff';
+      if(document.activeElement?.id!=='studioTickerSize'&&$('#studioTickerSize'))$('#studioTickerSize').value=String(sa.tickerScale||100);
       if(document.activeElement?.id!=='studioTickerColor'&&$('#studioTickerColor'))$('#studioTickerColor').value=sa.tickerColor||'#0f0f12';
     }
     if($('#triviaStatus')){
@@ -716,6 +725,12 @@
        note('Studio question position saved');
      }catch(e){note('Position error: '+e.message)}
    }
+   $('#studioApplyTickerSize').onclick=async()=>{
+     try{
+       await streamerbotTestCommand({action:'triviaSetStudioAppearance',tickerScale:Number($('#studioTickerSize').value)});
+       note('Studio ticker size saved');
+     }catch(e){note('Ticker size error: '+e.message)}
+   };
    $('#studioApplyPosition').onclick=()=>sendStudioPosition(Number($('#studioQuestionX').value),Number($('#studioQuestionY').value));
    $('#studioResetPosition').onclick=()=>{
      $('#studioQuestionX').value='50';$('#studioQuestionY').value='50';
